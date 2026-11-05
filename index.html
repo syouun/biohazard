@@ -76,6 +76,19 @@
   #docPanel .close { margin-top: 20px; font-size: 12px; color: #6a5a40; text-align: right; }
   #debug { position: fixed; left: 8px; top: 8px; z-index: 50; font: 12px/1.4 monospace; color: #9f9; background: rgba(0,0,0,0.6); padding: 6px 8px; white-space: pre; max-height: 92vh; overflow: hidden; }
   #gunInfo { position: fixed; left: 8px; bottom: 8px; z-index: 50; font: 12px/1.4 monospace; color: #fc6; background: rgba(0,0,0,0.6); padding: 6px 8px; white-space: pre; user-select: text; -webkit-user-select: text; pointer-events: auto; }
+  #padPanel { z-index: 36; }
+  #padPanel .box { width: 600px; border: 1px solid rgba(138,0,0,0.7); background: rgba(10,6,6,0.95); padding: 20px 26px; }
+  #padPanel h3 { margin: 0 0 10px; letter-spacing: 0.4em; font-weight: normal; color: #b09080; }
+  #padInfo { font-size: 13px; color: #a89880; margin-bottom: 10px; word-break: break-all; }
+  #padTable { width: 100%; border-collapse: collapse; font-size: 14px; }
+  #padTable td { padding: 3px 6px; border-bottom: 1px solid rgba(216,208,192,0.12); }
+  #padTable tr.cur td { background: rgba(138,0,0,0.45); }
+  #padPrompt { min-height: 26px; margin: 12px 0 6px; font-size: 16px; color: #e8c0a0; }
+  #padPanel .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  #padPanel label { font-size: 13px; margin: 0 10px; cursor: pointer; }
+  #padHelp { font-size: 12px; color: #8a8070; margin-top: 6px; }
+  #padStatus { margin-top: 10px; font-size: 12px; color: #8a9a80; }
+  button.ui.focus { background: rgba(138,0,0,0.6); box-shadow: 0 0 10px rgba(255,0,0,0.5); }
   .dlabel { position: fixed; z-index: 49; font: 11px monospace; color: #ff8; background: rgba(0,0,0,0.6); padding: 1px 4px; transform: translate(-50%, -100%); pointer-events: none; }
 </style>
 <script type="importmap">
@@ -115,7 +128,7 @@
   <canvas id="mapCanvas" width="880" height="360"></canvas>
   <div id="mapHelp">赤：施錠された扉　緑：開いている扉　点滅：現在地　M：閉じる</div>
 </div></div>
-<div id="docPanel" class="panel hidden"><div class="paper"><h3 id="docTitle"></h3><div id="docBody"></div><div class="close">E で閉じる</div></div></div>
+<div id="docPanel" class="panel hidden"><div class="paper"><h3 id="docTitle"></h3><div id="docBody"></div><div class="close" id="docClose">E で閉じる</div></div></div>
 
 <div id="fade" class="overlay"></div>
 
@@ -129,17 +142,23 @@
   <h1>腐蝕の館</h1>
   <h2>THE ROTTING MANOR</h2>
   <div class="blink">クリックして開始</div>
-  <button id="btnContinue" class="ui hidden" style="margin-top:28px">つづきから（セーブデータ）</button>
+  <div style="font-size:13px;margin-top:8px;color:#9a8f80">（ゲームパッドは START か ② ボタンで開始）</div>
+  <button id="btnContinue" class="ui hidden" style="margin-top:22px">つづきから（セーブデータ）</button>
+  <button id="btnPad" class="ui" style="font-size:14px;padding:6px 20px">ゲームパッド設定</button>
+  <div id="padStatus">ゲームパッド：未接続（パッドのボタンを押すと認識されます）</div>
   <div class="controls">
     WASD：移動　Shift：ダッシュ　右クリック（押下中）：構える　構え中に左クリック：射撃<br>
     R：リロード　E：調べる／拾う／扉を開ける　Tab：アイテム　M：マップ　1・2：武器切替<br>
-    F1：デバッグ表示　F2 / Shift+F2：銃の向き調整　F3：無敵（デバッグ）
+    F1：デバッグ表示　F2 / Shift+F2：銃の向き調整　F3：無敵（デバッグ）<br>
+    <span style="color:#b0a080">ゲームパッド（PS配列の既定）：左スティック/十字キー 移動　右スティック 視点　R1/L2 構える　③(×)/R2 射撃<br>
+    ②(○) 調べる・決定　④(□) ダッシュ　①(△) リロード　SELECT アイテム　L1 マップ　L3/R3 武器切替　START ポーズ</span>
   </div>
   <div id="titleWarn" class="warn"></div>
 </div>
 <div id="pause" class="screen hidden">
   <h1>PAUSE</h1>
-  <div class="blink">クリックで再開</div>
+  <div class="blink">クリック または START で再開</div>
+  <button id="btnPad2" class="ui" style="font-size:14px;padding:6px 20px;margin-top:24px">ゲームパッド設定</button>
 </div>
 <div id="gameover" class="screen hidden">
   <h1>YOU DIED</h1>
@@ -151,6 +170,19 @@
   <div class="stats" id="endStats"></div>
   <button id="btnAgain" class="ui">もう一度プレイ</button>
 </div>
+<div id="padPanel" class="panel hidden"><div class="box">
+  <h3>GAMEPAD</h3>
+  <div id="padInfo"></div>
+  <table id="padTable"></table>
+  <div id="padPrompt"></div>
+  <div class="row">
+    <button class="ui" id="padWizard" style="font-size:14px;padding:6px 16px">割り当てを設定する</button>
+    <button class="ui" id="padReset" style="font-size:14px;padding:6px 16px">初期設定に戻す</button>
+    <label><input type="checkbox" id="padInvert"> 視点の上下を反転</label>
+    <button class="ui" id="padClose" style="font-size:14px;padding:6px 16px">閉じる</button>
+  </div>
+  <div id="padHelp">パッドで操作：「調べる」ボタンで設定開始、START で閉じる。設定中は Esc でその項目をスキップ。</div>
+</div></div>
 <div id="debug" class="hidden"></div>
 <div id="gunInfo" class="hidden"></div>
 
@@ -182,6 +214,10 @@ const CONFIG = {
   camera: { fov: 65, aimFov: 45, offset: [0.55, 1.65, -2.6], aimOffset: [0.45, 1.6, -1.3],
             sensitivity: 0.0022, pitchMin: -0.9, pitchMax: 0.6, followK: 12, wallPadding: 0.2 },
   world: { tile: 2.0, wallHeight: 3.2 },
+  // 'auto'：GLBが読めればGLB、読めなければ手続きキャラクター / 'procedural'：常に作り込んだ手続きキャラクターを使う
+  characters: 'auto',
+  // ゲームパッド（BSGP1204P などの DirectInput パッドにも対応。割り当てはタイトル/ポーズの「ゲームパッド設定」で変更可）
+  gamepad: { deadzone: 0.2, lookSpeed: 2.8, lookSpeedY: 1.9, rumble: true },
   debug: false,
 };
 
@@ -427,6 +463,7 @@ let onKeyAction = () => {};
 let onMouseAction = () => {};
 window.addEventListener('keydown', (e) => {
   if (PREVENT_KEYS.has(e.code)) e.preventDefault();
+  Pad.lastDevice = 'kb';
   const first = !Input.keys.has(e.code);
   Input.keys.add(e.code);
   if (first || !e.repeat) onKeyAction(e);
@@ -435,6 +472,8 @@ window.addEventListener('keyup', (e) => { Input.keys.delete(e.code); });
 window.addEventListener('blur', () => Input.clear());
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('mousedown', (e) => {
+  Pad.lastDevice = 'kb';
+  if (Audio.ctx && Audio.ctx.state === 'suspended') Audio.ctx.resume();
   if (e.button === 2) Input.rmb = true;
   onMouseAction(e);
 });
@@ -458,6 +497,196 @@ function requestLock() {
     const p = renderer.domElement.requestPointerLock();
     if (p && typeof p.catch === 'function') p.catch(() => {});
   } catch (e) { /* ポインターロック不可の環境では無視 */ }
+}
+
+// ---------------- ゲームパッド（Gamepad API） ----------------
+// 標準配列（mapping==='standard'）と、BSGP1204P のような DirectInput 系の非標準配列の両方に対応。
+// 非標準配列は PS 配列（①△ ②○ ③× ④□ / L1 R1 L2 R2 / SELECT START / L3 R3）を既定とし、
+// 十字キーは「ハット軸（axis 9）」「左スティック軸（デジタルモード）」「ボタン12〜15」のいずれでも受け付ける。
+const PAD_STORE = 'rotting-manor-pad-v1';
+const PAD_ACTIONS = ['interact', 'fire', 'aim', 'dash', 'reload', 'inventory', 'map', 'weapon', 'pause'];
+const PAD_ACTION_LABEL = {
+  interact: '調べる／決定', fire: '射撃', aim: '構える（押し続ける）', dash: 'ダッシュ（押し続ける）', reload: 'リロード',
+  inventory: 'アイテム', map: 'マップ', weapon: '武器切替', pause: 'ポーズ',
+};
+const PAD_DEFAULTS = {
+  standard: { buttons: { interact: [1], fire: [0, 7], aim: [5, 6], dash: [2], reload: [3], inventory: [8], map: [4], weapon: [10, 11], pause: [9] }, rx: 2, ry: 3, rxs: 1, rys: 1, invertY: false },
+  generic: { buttons: { interact: [1], fire: [2, 7], aim: [5, 6], dash: [3], reload: [0], inventory: [8], map: [4], weapon: [10, 11], pause: [9] }, rx: 2, ry: 5, rxs: 1, rys: 1, invertY: false },
+};
+const HAT_DIRS = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
+const STD_BTN_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'BACK', 'START', 'L3', 'R3', '↑', '↓', '←', '→', 'HOME'];
+const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬', '⑭', '⑮', '⑯', '⑰', '⑱'];
+const KEY_LABEL = { interact: 'E', fire: '左クリック', aim: '右クリック', dash: 'Shift', reload: 'R', inventory: 'Tab', map: 'M', weapon: '1/2', pause: 'Esc' };
+const Pad = {
+  index: null, id: '', standard: false, hat: false, dpadButtons: false, cfg: null, down: [], prev: [], base: null,
+  move: { x: 0, y: 0 }, look: { x: 0, y: 0 }, nav: { dir: null, t: 0 }, navEvent: null, lastDevice: 'kb', wizard: null,
+};
+function padLoadAll() { try { return JSON.parse(localStorage.getItem(PAD_STORE) || '{}') || {}; } catch (e) { return {}; } }
+function padDefaults(gp) {
+  const d = structuredClone(gp && gp.mapping === 'standard' ? PAD_DEFAULTS.standard : PAD_DEFAULTS.generic);
+  if (gp && gp.mapping !== 'standard') d.ry = gp.axes.length > 5 ? 5 : 3;
+  return d;
+}
+function padConnect(gp) {
+  Pad.index = gp.index; Pad.id = gp.id; Pad.standard = gp.mapping === 'standard';
+  Pad.base = Array.from(gp.axes);
+  Pad.hat = !Pad.standard && gp.axes.length > 9 && Pad.base[9] > 1.05;
+  Pad.dpadButtons = Pad.standard || gp.buttons.length >= 16;
+  const saved = padLoadAll()[gp.id];
+  Pad.cfg = saved && saved.buttons ? saved : padDefaults(gp);
+  Pad.down = gp.buttons.map((b) => b.pressed || b.value > 0.5);
+  Pad.prev = Pad.down.slice();
+  console.log(`[PAD] 接続: ${gp.id} / mapping=${gp.mapping || '(非標準)'} / buttons=${gp.buttons.length} / axes=${gp.axes.length} / hat=${Pad.hat}`);
+  padStatusUpdate();
+  if (typeof showMessage === 'function' && state) showMessage('ゲームパッドを認識しました。');
+}
+function padSave() {
+  const all = padLoadAll(); all[Pad.id] = Pad.cfg;
+  try { localStorage.setItem(PAD_STORE, JSON.stringify(all)); } catch (e) { /* 保存できない環境では無視 */ }
+}
+function padAxis(gp, i, sign = 1) {
+  if (i === null || i === undefined || i < 0 || i >= gp.axes.length) return 0;
+  if (Pad.base && Math.abs(Pad.base[i]) > 0.5) return 0;   // 静止値が大きい軸（ハット・トリガー等）はスティックとして扱わない
+  return (gp.axes[i] || 0) * sign;
+}
+function radialDeadzone(x, y, dz) {
+  const m = Math.hypot(x, y);
+  if (m < dz) return [0, 0];
+  const k = Math.min(1, (m - dz) / (1 - dz)) / m;
+  return [x * k, y * k];
+}
+function currentGamepad() {
+  if (Pad.index === null || !navigator.getGamepads) return null;
+  const gp = navigator.getGamepads()[Pad.index];
+  return gp && gp.connected ? gp : null;
+}
+function pollPad(dt) {
+  Pad.navEvent = null;
+  if (!navigator.getGamepads) return;
+  const pads = navigator.getGamepads();
+  let gp = Pad.index !== null ? pads[Pad.index] : null;
+  if (!gp || !gp.connected) {
+    if (Pad.index !== null) { Pad.index = null; padStatusUpdate(); if (state) showMessage('ゲームパッドが切断されました。'); }
+    gp = null;
+    for (const p of pads) if (p && p.connected && p.buttons.length) { gp = p; break; }
+    if (!gp) { Pad.move.x = Pad.move.y = Pad.look.x = Pad.look.y = 0; Pad.down = []; Pad.prev = []; return; }
+    padConnect(gp);
+  }
+  Pad.prev = Pad.down;
+  Pad.down = gp.buttons.map((b) => b.pressed || b.value > 0.5);
+  const c = Pad.cfg, dz = CONFIG.gamepad.deadzone;
+  let [mx, my] = radialDeadzone(padAxis(gp, 0), padAxis(gp, 1), dz);
+  let hx = 0, hy = 0;
+  if (Pad.dpadButtons) { if (Pad.down[14]) hx -= 1; if (Pad.down[15]) hx += 1; if (Pad.down[12]) hy -= 1; if (Pad.down[13]) hy += 1; }
+  if (Pad.hat) {
+    const v = gp.axes[9];
+    if (v >= -1.05 && v <= 1.05) { const d = HAT_DIRS[Math.round((v + 1) * 3.5) % 8]; hx = d[0]; hy = d[1]; }
+  }
+  if (hx || hy) { const l = Math.hypot(hx, hy); mx = hx / l; my = hy / l; }
+  Pad.move.x = mx; Pad.move.y = my;
+  const [lx, ly] = radialDeadzone(padAxis(gp, c.rx, c.rxs || 1), padAxis(gp, c.ry, c.rys || 1), dz * 0.9);
+  Pad.look.x = lx; Pad.look.y = ly * (c.invertY ? -1 : 1);
+  if (Pad.down.some((d, i) => d && !Pad.prev[i]) || Math.hypot(mx, my) > 0.3 || Math.hypot(lx, ly) > 0.3) Pad.lastDevice = 'pad';
+  // メニュー用の方向入力（押した瞬間＋長押しリピート）
+  const nd = Math.max(Math.abs(mx), Math.abs(my)) > 0.6 ? (Math.abs(mx) > Math.abs(my) ? (mx > 0 ? 'right' : 'left') : (my > 0 ? 'down' : 'up')) : null;
+  if (nd !== Pad.nav.dir) { Pad.nav.dir = nd; Pad.nav.t = 0.35; Pad.navEvent = nd; }
+  else if (nd) { Pad.nav.t -= dt; if (Pad.nav.t <= 0) { Pad.nav.t = 0.14; Pad.navEvent = nd; } }
+}
+function padHeld(a) { return !!(Pad.index !== null && Pad.cfg && Pad.cfg.buttons[a] && Pad.cfg.buttons[a].some((i) => Pad.down[i])); }
+function padPressed(a) { return !!(Pad.index !== null && Pad.cfg && Pad.cfg.buttons[a] && Pad.cfg.buttons[a].some((i) => Pad.down[i] && !Pad.prev[i])); }
+function padButtonName(i) { return Pad.standard ? (STD_BTN_NAMES[i] || `B${i}`) : (CIRCLED[i] || `ボタン${i + 1}`); }
+function btnLabel(a) {
+  if (Pad.lastDevice === 'pad' && Pad.index !== null && Pad.cfg) {
+    const list = Pad.cfg.buttons[a] || [];
+    return list.length ? padButtonName(list[0]) : '—';
+  }
+  return KEY_LABEL[a];
+}
+function rumble(strong, weak, ms) {
+  if (!CONFIG.gamepad.rumble) return;
+  const gp = currentGamepad();
+  const act = gp && gp.vibrationActuator;
+  if (act && act.playEffect) {
+    try { const p = act.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }); if (p && p.catch) p.catch(() => {}); } catch (e) { /* 振動非対応 */ }
+  }
+}
+function padStatusUpdate() {
+  const el = $('padStatus');
+  if (!el) return;
+  el.textContent = Pad.index !== null ? `ゲームパッド：接続中（${Pad.standard ? '標準配列' : '非標準配列 / DirectInput'}）${Pad.id}` : 'ゲームパッド：未接続（パッドのボタンを押すと認識されます）';
+  if (!$('padPanel').classList.contains('hidden')) renderPadPanel();
+}
+window.addEventListener('gamepadconnected', (e) => { if (Pad.index === null) padConnect(e.gamepad); });
+window.addEventListener('gamepaddisconnected', (e) => { if (e.gamepad.index === Pad.index) { Pad.index = null; padStatusUpdate(); } });
+
+// ---- ゲームパッド設定画面（押したボタンで割り当て） ----
+const PAD_WIZ_STEPS = [
+  ...PAD_ACTIONS.map((a) => ({ type: 'button', action: a, text: `「${PAD_ACTION_LABEL[a]}」に使うボタンを押してください` })),
+  { type: 'axis', key: 'rx', text: '右スティック（視点）を「右」に倒してください' },
+  { type: 'axis', key: 'ry', text: '右スティック（視点）を「下」に倒してください' },
+];
+function openPadPanel() { $('padPanel').classList.remove('hidden'); Pad.wizard = null; $('padPrompt').textContent = ''; renderPadPanel(); }
+function closePadPanel() { Pad.wizard = null; $('padPanel').classList.add('hidden'); }
+function renderPadPanel() {
+  const info = $('padInfo');
+  if (Pad.index === null) {
+    info.textContent = 'パッドが認識されていません。USB接続後、パッドのボタンを何か押してください（ブラウザはボタンが押されるまでパッドを公開しません）。';
+    $('padTable').innerHTML = ''; return;
+  }
+  info.textContent = `${Pad.id}\n${Pad.standard ? '標準配列' : '非標準配列（DirectInput）'}／十字キー：${Pad.hat ? 'ハット軸' : Pad.dpadButtons ? 'ボタン' : '左スティック軸'}`;
+  const cur = Pad.wizard ? PAD_WIZ_STEPS[Pad.wizard.step] : null;
+  const cfg = Pad.wizard ? Pad.wizard.cfg : Pad.cfg;
+  let html = '';
+  for (const a of PAD_ACTIONS) {
+    const names = (cfg.buttons[a] || []).map(padButtonName).join(' / ') || '—';
+    html += `<tr class="${cur && cur.action === a ? 'cur' : ''}"><td>${PAD_ACTION_LABEL[a]}</td><td>${names}</td></tr>`;
+  }
+  html += `<tr class="${cur && cur.key === 'rx' ? 'cur' : ''}"><td>視点 左右</td><td>軸 ${cfg.rx} (${cfg.rxs > 0 ? '+' : '−'})</td></tr>`;
+  html += `<tr class="${cur && cur.key === 'ry' ? 'cur' : ''}"><td>視点 上下</td><td>軸 ${cfg.ry} (${cfg.rys > 0 ? '+' : '−'})</td></tr>`;
+  html += `<tr><td>移動</td><td>左スティック（軸0/1）＋十字キー</td></tr>`;
+  $('padTable').innerHTML = html;
+  $('padInvert').checked = !!cfg.invertY;
+}
+function startPadWizard() {
+  if (Pad.index === null) { $('padPrompt').textContent = 'パッドのボタンを押して認識させてください。'; return; }
+  const gp = currentGamepad();
+  Pad.base = gp ? Array.from(gp.axes) : Pad.base;
+  Pad.wizard = { step: 0, cfg: structuredClone(Pad.cfg), needRelease: true };
+  $('padPrompt').textContent = PAD_WIZ_STEPS[0].text;
+  renderPadPanel();
+}
+function padWizardNext(skip) {
+  const w = Pad.wizard;
+  w.step++; w.needRelease = true;
+  if (w.step >= PAD_WIZ_STEPS.length) {
+    Pad.cfg = w.cfg; Pad.wizard = null; padSave();
+    $('padPrompt').textContent = '割り当てを保存しました。';
+  } else $('padPrompt').textContent = (skip ? '（スキップ）' : '') + PAD_WIZ_STEPS[w.step].text;
+  renderPadPanel();
+}
+function padWizardUpdate(dt) {
+  const w = Pad.wizard, st = PAD_WIZ_STEPS[w.step];
+  const gp0 = currentGamepad();
+  if (w.needRelease) {
+    // 前の入力（ボタン・スティック）が全て離されるまで次を受け付けない
+    const axesIdle = !gp0 || gp0.axes.every((v, k) => k === 0 || k === 1 || (Pad.hat && k === 9) || Math.abs(Pad.base[k] || 0) > 0.5 || Math.abs(v - (Pad.base[k] || 0)) < 0.3);
+    if (!Pad.down.some(Boolean) && axesIdle) w.needRelease = false;
+    return;
+  }
+  if (st.type === 'button') {
+    const i = Pad.down.findIndex((d, k) => d && !Pad.prev[k]);
+    if (i >= 0) { w.cfg.buttons[st.action] = [i]; padWizardNext(false); }
+  } else {
+    const gp = currentGamepad();
+    if (!gp) return;
+    let best = -1, bestV = 0.6;
+    for (let k = 0; k < gp.axes.length; k++) {
+      if (k === 0 || k === 1 || (Pad.hat && k === 9) || Math.abs(Pad.base[k] || 0) > 0.5) continue;
+      const v = gp.axes[k] - (Pad.base[k] || 0);
+      if (Math.abs(v) > bestV) { bestV = Math.abs(v); best = k; }
+    }
+    if (best >= 0) { w.cfg[st.key] = best; w.cfg[st.key + 's'] = Math.sign(gp.axes[best] - (Pad.base[best] || 0)) || 1; padWizardNext(false); }
+  }
 }
 
 // =====================================================================
@@ -656,36 +885,547 @@ function animPlay(a, role, fade = 0.2, opts = {}) {
 }
 function animDisposeAnimator(a) { if (a.mixer) { a.mixer.stopAllAction(); a.mixer.uncacheRoot(a.mixer.getRoot()); } }
 
-// ---------- フォールバックモデル ----------
-const fallbackGeo = {
-  capsule: new THREE.CapsuleGeometry(0.3, 1.75 - 0.6, 6, 12),
-  face: new THREE.BoxGeometry(0.18, 0.1, 0.12),
-  eye: new THREE.SphereGeometry(0.035, 8, 6),
-  gun: new THREE.BoxGeometry(0.04, 0.09, 0.22),
+// ---------- 手続きキャラクター（関節付き人型リグ＋武器モデル） ----------
+// GLBが読めない時、または CONFIG.characters === 'procedural' の時に使用する。
+// 部位ごとにプリミティブを頂点カラー付きで結合（1部位＝1ドローコール）し、関節(Group)を手続き的に回して動かす。
+const CHAR_TEX = canvasTex(128, 128, (g, w, h) => {
+  g.fillStyle = '#dedede'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 70; i++) { g.strokeStyle = `rgba(0,0,0,${Math.random() * 0.08})`; g.lineWidth = 1; const y = Math.random() * h; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + rand(-6, 6)); g.stroke(); }
+  speckle(g, w, h, 700, 0.16); stains(g, w, h, 6, '0,0,0');
+});
+const CHAR_MAT = {
+  human: new THREE.MeshStandardMaterial({ vertexColors: true, map: CHAR_TEX, roughness: 0.72, metalness: 0.05 }),
+  zombie: new THREE.MeshStandardMaterial({ vertexColors: true, map: CHAR_TEX, roughness: 0.85, side: THREE.DoubleSide }),
+  boss: new THREE.MeshStandardMaterial({ vertexColors: true, map: CHAR_TEX, roughness: 0.55, emissive: 0x000000 }),
+  gun: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.75 }),
+  eyeZ: new THREE.MeshStandardMaterial({ color: 0xd8d0a0, emissive: 0xc8b060, emissiveIntensity: 0.7 }),
+  eyeBoss: new THREE.MeshStandardMaterial({ color: 0xffc040, emissive: 0xffa000, emissiveIntensity: 1.2 }),
+  heart: new THREE.MeshStandardMaterial({ color: 0x900000, emissive: 0xff1000, emissiveIntensity: 0.8, roughness: 0.3 }),
+  lens: new THREE.MeshStandardMaterial({ color: 0xfff8e0, emissive: 0xfff0c0, emissiveIntensity: 1.0 }),
 };
-const fallbackMat = {
-  player: new THREE.MeshStandardMaterial({ color: 0x2a3a62, roughness: 0.7 }),
-  face: new THREE.MeshStandardMaterial({ color: 0xc0a080, roughness: 0.8 }),
-  zombie: new THREE.MeshStandardMaterial({ color: 0x7a8a62, roughness: 0.9 }),
-  eye: new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.2 }),
-  gun: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.6 }),
+const CG = {
+  cap: (r, l, rs = 8) => new THREE.CapsuleGeometry(r, l, 3, rs),
+  sph: (r, w = 10, h = 8) => new THREE.SphereGeometry(r, w, h),
+  box: (x, y, z) => new THREE.BoxGeometry(x, y, z),
+  cyl: (rt, rb, h, s = 8, open = false, ts = 0, tl = Math.PI * 2) => new THREE.CylinderGeometry(rt, rb, h, s, 1, open, ts, tl),
+  cone: (r, h, s = 6) => new THREE.ConeGeometry(r, h, s),
 };
-function makeFallbackPlayer() {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(fallbackGeo.capsule, fallbackMat.player); body.position.y = 1.75 / 2; body.castShadow = body.receiveShadow = true; g.add(body);
-  const face = new THREE.Mesh(fallbackGeo.face, fallbackMat.face); face.position.set(0, 1.52, 0.27); face.castShadow = true; g.add(face);
+const COL_BLOOD = new THREE.Color(0x3a0000), COL_DIRT = new THREE.Color(0x2a2418);
+const _pc = new THREE.Color(), _pe = new THREE.Euler(), _pq = new THREE.Quaternion(), _pm = new THREE.Matrix4(), _pv = new THREE.Vector3(), _ps = new THREE.Vector3();
+function stainField(x, y, z, s) {
+  return Math.sin(x * 21.7 + s) * Math.sin(y * 17.3 + s * 1.7) * Math.sin(z * 19.1 + s * 2.3)
+    + 0.6 * Math.sin(x * 47 + y * 41 + s * 3.1) * Math.sin(z * 37 - y * 29 + s * 0.7);
+}
+// プリミティブ1個を変形し、頂点カラー（汚れ・血・色むら）を焼き込む
+function part(geo, hex, o = {}) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  if (g !== geo) geo.dispose();
+  const p = o.p || [0, 0, 0], r = o.r || [0, 0, 0], s = o.s || [1, 1, 1];
+  _pe.set(r[0], r[1], r[2], 'YXZ'); _pq.setFromEuler(_pe);
+  _pm.compose(_pv.set(p[0], p[1], p[2]), _pq, _ps.set(s[0], s[1], s[2]));
+  g.applyMatrix4(_pm);
+  const pos = g.attributes.position, n = pos.count, col = new Float32Array(n * 3);
+  const base = new THREE.Color(hex), seed = o.seed || 0;
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    _pc.copy(base);
+    if (o.vary) _pc.multiplyScalar(1 + stainField(x * 3, y * 3, z * 3, seed + 5) * 0.4 * o.vary);
+    if (o.dirt) { const d = stainField(x, y, z, seed + 11), th = 1 - o.dirt * 1.4; if (d > th) _pc.lerp(o.dirtColor || COL_DIRT, clamp((d - th) * 1.5, 0, 0.8)); }
+    if (o.blood) { const b = stainField(x * 1.3, y * 1.3, z * 1.3, seed + 23), th = 1 - o.blood * 1.6; if (b > th) _pc.lerp(COL_BLOOD, clamp((b - th) * 2.5, 0, 0.95)); }
+    col[i * 3] = _pc.r; col[i * 3 + 1] = _pc.g; col[i * 3 + 2] = _pc.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   return g;
 }
-function makeFallbackZombie(mat) {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(fallbackGeo.capsule, mat || fallbackMat.zombie); body.position.y = 1.75 / 2; body.castShadow = body.receiveShadow = true; g.add(body);
-  for (const sx of [-0.09, 0.09]) { const e = new THREE.Mesh(fallbackGeo.eye, fallbackMat.eye); e.position.set(sx, 1.58, 0.27); g.add(e); }
-  return g;
+function mergeParts(parts) {
+  let n = 0;
+  for (const g of parts) n += g.attributes.position.count;
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), col = new Float32Array(n * 3);
+  let o = 0;
+  for (const g of parts) {
+    const c = g.attributes.position.count;
+    pos.set(g.attributes.position.array, o * 3);
+    nor.set(g.attributes.normal.array, o * 3);
+    if (g.attributes.uv) uv.set(g.attributes.uv.array, o * 2);
+    col.set(g.attributes.color.array, o * 3);
+    o += c; g.dispose();
+  }
+  const m = new THREE.BufferGeometry();
+  m.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  m.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  m.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  m.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  m.computeBoundingSphere();
+  m.userData.owned = true;
+  return m;
 }
-function makeFallbackGun() {
+function seg(joint, parts, mat, cast = true) {
+  const m = new THREE.Mesh(mergeParts(parts.filter(Boolean)), mat);
+  m.castShadow = cast; m.receiveShadow = true;
+  joint.add(m);
+  return m;
+}
+function rigJoint(name, parent, x, y, z) {
+  const j = new THREE.Group();
+  j.name = name; j.position.set(x, y, z); j.rotation.order = 'YXZ';
+  j.userData.t = new THREE.Vector3();
+  parent.add(j);
+  return j;
+}
+// 骨格：+Z が正面、左は +X。身長 1.75m（頭頂）。
+function buildRigSkeleton() {
+  const root = new THREE.Group(), j = {};
+  j.hips = rigJoint('hips', root, 0, 0.95, 0);
+  j.spine = rigJoint('spine', j.hips, 0, 0.08, 0);
+  j.chest = rigJoint('chest', j.spine, 0, 0.2, 0);
+  j.neck = rigJoint('neck', j.chest, 0, 0.24, 0);
+  j.head = rigJoint('head', j.neck, 0, 0.07, 0);
+  for (const [s, sx] of [['L', 1], ['R', -1]]) {
+    j['sh' + s] = rigJoint('sh' + s, j.chest, 0.185 * sx, 0.2, 0);
+    j['el' + s] = rigJoint('el' + s, j['sh' + s], 0, -0.29, 0);
+    j['ha' + s] = rigJoint('ha' + s, j['el' + s], 0, -0.26, 0);
+    j['th' + s] = rigJoint('th' + s, j.hips, 0.1 * sx, -0.03, 0);
+    j['kn' + s] = rigJoint('kn' + s, j['th' + s], 0, -0.44, 0);
+    j['ft' + s] = rigJoint('ft' + s, j['kn' + s], 0, -0.44, 0);
+  }
+  return { root, j, list: Object.values(j), t: Math.random() * 10, ph: 0, aimW: 0, relW: 0, reach: 0, hipsY: 0.95, seed: 0, limp: 0, oneArm: false, tilt: 0 };
+}
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function seededRandom(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+// ---- プレイヤー（特殊部隊員風：戦闘服・タクティカルベスト・ニーパッド・肩の無線とライト） ----
+function buildPlayerRig() {
+  const rig = buildRigSkeleton(), j = rig.j, M = CHAR_MAT.human;
+  const SKIN = 0xc8987a, HAIR = 0x2a1d14, SHIRT = 0x3c4430, VEST = 0x1d201b, PANTS = 0x2c323b, BOOT = 0x15120f;
+  const GLOVE = 0x1a1a1a, BELT = 0x2c2418, POUCH = 0x262b22, METAL = 0x5a5e62, DARK = 0x0e0e0e;
+  const d = { dirt: 0.25, vary: 0.15, seed: 3 };
+  seg(j.hips, [
+    part(CG.cap(0.14, 0.06), PANTS, { p: [0, -0.02, 0], s: [1.3, 0.75, 0.88], ...d }),
+    part(CG.cyl(0.168, 0.168, 0.055, 14), BELT, { p: [0, 0.035, 0], s: [1, 1, 0.78] }),
+    part(CG.box(0.055, 0.04, 0.012), METAL, { p: [0, 0.035, 0.132] }),
+    part(CG.box(0.05, 0.06, 0.04), POUCH, { p: [0.125, 0.03, 0.085], r: [0, 0.6, 0] }),
+    part(CG.box(0.05, 0.06, 0.04), POUCH, { p: [-0.13, 0.03, -0.06], r: [0, 1.2, 0] }),
+    part(CG.box(0.07, 0.06, 0.04), POUCH, { p: [0.05, 0.03, -0.13] }),
+  ], M);
+  seg(j.spine, [
+    part(CG.cap(0.125, 0.1), SHIRT, { p: [0, 0.1, 0], s: [1.18, 1, 0.82], ...d }),
+    part(CG.cap(0.135, 0.06), VEST, { p: [0, 0.13, 0], s: [1.22, 1, 0.88], ...d }),
+    ...[-0.075, 0, 0.075].map((x) => part(CG.box(0.058, 0.075, 0.035), POUCH, { p: [x, 0.11, 0.125], ...d })),
+    ...[-0.075, 0, 0.075].map((x) => part(CG.box(0.062, 0.016, 0.039), 0x1a1d18, { p: [x, 0.152, 0.126] })),
+  ], M);
+  seg(j.chest, [
+    part(CG.cap(0.155, 0.1), SHIRT, { p: [0, 0.11, 0], s: [1.24, 1, 0.8], ...d }),
+    part(CG.cap(0.162, 0.07), VEST, { p: [0, 0.1, 0], s: [1.24, 1, 0.86], ...d }),
+    part(CG.box(0.045, 0.085, 0.032), DARK, { p: [0.095, 0.15, 0.13], r: [0.1, 0, 0] }),
+    part(CG.cyl(0.004, 0.004, 0.09), DARK, { p: [0.11, 0.24, 0.125] }),
+    part(CG.cyl(0.021, 0.024, 0.075, 10), METAL, { p: [-0.1, 0.17, 0.14], r: [Math.PI / 2, 0, 0] }),
+    part(CG.box(0.05, 0.022, 0.28), VEST, { p: [0.1, 0.23, 0] }),
+    part(CG.box(0.05, 0.022, 0.28), VEST, { p: [-0.1, 0.23, 0] }),
+    part(CG.cyl(0.07, 0.085, 0.05, 10), SHIRT, { p: [0, 0.235, 0] }),
+    part(CG.box(0.17, 0.17, 0.045), 0x1c2019, { p: [0, 0.06, -0.135], ...d }),
+    part(CG.box(0.15, 0.04, 0.03), 0x161a14, { p: [0, 0.16, -0.13] }),
+    part(CG.box(0.08, 0.035, 0.008), 0x6a6448, { p: [0.05, 0.04, 0.142] }),
+  ], M);
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(0.019, 12), CHAR_MAT.lens);
+  lens.geometry.userData.owned = true;
+  lens.position.set(-0.1, 0.17, 0.179); j.chest.add(lens);
+  seg(j.neck, [part(CG.cyl(0.045, 0.052, 0.09, 10), SKIN, { p: [0, 0.035, 0] })], M);
+  const face = [];
+  for (const sx of [1, -1]) {
+    face.push(part(CG.sph(0.022, 8, 6), SKIN, { p: [0.1 * sx, 0.085, 0], s: [0.45, 1, 0.75] }));
+    face.push(part(CG.sph(0.015, 8, 6), 0xe0d8c8, { p: [0.036 * sx, 0.1, 0.092], s: [1, 0.8, 0.6] }));
+    face.push(part(CG.sph(0.008, 6, 4), 0x2a1a10, { p: [0.036 * sx, 0.1, 0.1] }));
+    face.push(part(CG.box(0.034, 0.008, 0.012), HAIR, { p: [0.037 * sx, 0.123, 0.1], r: [0, 0, 0.1 * sx] }));
+  }
+  seg(j.head, [
+    part(CG.sph(0.105, 14, 12), SKIN, { p: [0, 0.09, 0], s: [0.95, 1.17, 1.05], vary: 0.06 }),
+    part(CG.sph(0.085, 10, 8), 0xa88068, { p: [0, 0.045, 0.02], s: [0.9, 0.6, 1.05] }),
+    part(new THREE.SphereGeometry(0.112, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.52), HAIR, { p: [0, 0.105, -0.01], s: [0.97, 1.08, 1.06], vary: 0.2 }),
+    part(CG.sph(0.1, 10, 8), HAIR, { p: [0, 0.08, -0.03], s: [0.98, 0.9, 0.95], vary: 0.2 }),
+    ...face,
+    part(CG.box(0.02, 0.038, 0.028), 0xb8866a, { p: [0, 0.075, 0.108], r: [-0.2, 0, 0] }),
+    part(CG.box(0.036, 0.007, 0.01), 0x7a4436, { p: [0, 0.035, 0.103] }),
+    part(CG.box(0.014, 0.03, 0.022), DARK, { p: [0.104, 0.08, 0.008] }),
+  ], M);
+  for (const [s, sx] of [['L', 1], ['R', -1]]) {
+    seg(j['sh' + s], [
+      part(CG.sph(0.062, 10, 8), SHIRT, { p: [0, -0.01, 0], ...d }),
+      part(CG.cap(0.052, 0.2), SHIRT, { p: [0, -0.14, 0], ...d }),
+      part(CG.cyl(0.058, 0.056, 0.05, 10), 0x343a2a, { p: [0, -0.245, 0] }),
+      part(CG.box(0.012, 0.07, 0.06), 0x2a2e24, { p: [0.052 * sx, -0.1, 0] }),
+    ], M);
+    seg(j['el' + s], [
+      part(CG.cap(0.044, 0.17), SKIN, { p: [0, -0.12, 0], vary: 0.08 }),
+      s === 'L' ? part(CG.cyl(0.048, 0.048, 0.025, 10), DARK, { p: [0, -0.22, 0] }) : null,
+    ], M);
+    seg(j['ha' + s], [
+      part(CG.box(0.075, 0.08, 0.036), GLOVE, { p: [0, -0.04, 0] }),
+      part(CG.box(0.07, 0.045, 0.03), GLOVE, { p: [0, -0.095, 0.006], r: [-0.35, 0, 0] }),
+      part(CG.box(0.022, 0.05, 0.024), GLOVE, { p: [-sx * 0.04, -0.035, 0.018], r: [0, 0, sx * 0.4] }),
+    ], M);
+    seg(j['th' + s], [
+      part(CG.cap(0.074, 0.3), PANTS, { p: [0, -0.21, 0], ...d }),
+      s === 'R' ? part(CG.box(0.05, 0.15, 0.1), DARK, { p: [-0.078, -0.13, 0.01] }) : part(CG.box(0.035, 0.11, 0.09), 0x323944, { p: [0.074, -0.22, 0] }),
+      s === 'R' ? part(CG.cyl(0.08, 0.08, 0.025, 12), DARK, { p: [0, -0.2, 0] }) : null,
+    ], M);
+    seg(j['kn' + s], [
+      part(CG.cap(0.058, 0.3), PANTS, { p: [0, -0.2, 0], ...d }),
+      part(CG.box(0.085, 0.09, 0.035), 0x141414, { p: [0, -0.015, 0.06] }),
+      part(CG.cyl(0.064, 0.068, 0.17, 10), BOOT, { p: [0, -0.36, 0] }),
+      part(CG.cyl(0.066, 0.066, 0.012, 10), 0x2a2a2a, { p: [0, -0.29, 0] }),
+    ], M);
+    seg(j['ft' + s], [
+      part(CG.box(0.095, 0.07, 0.25), BOOT, { p: [0, -0.008, 0.05] }),
+      part(CG.box(0.1, 0.02, 0.265), 0x070707, { p: [0, -0.042, 0.05] }),
+    ], M);
+  }
+  rig.lens = lens;
+  return rig;
+}
+
+// ---- ゾンビ（個体ごとに服装・肌色・傷・足の引きずり方が変わる） ----
+function buildZombieRig(id, room) {
+  const rng = seededRandom(hashStr(id)), pick = (a) => a[Math.floor(rng() * a.length)];
+  const rig = buildRigSkeleton(), j = rig.j, M = CHAR_MAT.zombie;
+  const seed = rng() * 100;
+  const outfit = room === 'lab' || room === 'core' ? 'lab' : pick(['suit', 'shirt', 'shirt', 'vest']);
+  const SKIN = pick([0x8c9678, 0x9a9886, 0x7e8a6e, 0xa09a8a]);
+  const SKIN_D = new THREE.Color(SKIN).multiplyScalar(0.7).getHex();
+  const CLOTH = outfit === 'lab' ? 0xcfcfc4 : outfit === 'suit' ? 0x2a282c : outfit === 'vest' ? 0x4a3a2a : pick([0xb0a690, 0x8a8f9a, 0x9a8a70]);
+  const INNER = outfit === 'lab' ? 0x8a8f9a : outfit === 'shirt' ? CLOTH : 0xa8a090;
+  const PANTS = pick([0x302c26, 0x26282e, 0x3a342a]);
+  const HAIR = pick([0x2a2420, 0x4a4038, 0x6a6258, 0x1a1612]);
+  const BONE = 0xd8ccb0, WOUND = 0x5a0808, CAVITY = 0x1a0202;
+  const sk = { vary: 0.25, dirt: 0.5, dirtColor: new THREE.Color(0x4a3a4a), blood: 0.25, seed };
+  const cl = { vary: 0.2, dirt: 0.55, blood: 0.45, seed };
+  rig.seed = seed; rig.limp = pick([0, 1, 2]); rig.oneArm = rng() < 0.3; rig.tilt = rng() * 2 - 1;
+  const ribs = rng() < 0.5, bareFoot = pick(['L', 'R', null]), bareShin = pick(['L', 'R', null]), tornSleeve = pick(['L', 'R']);
+  const missingEar = pick([1, -1, 0]);
+  seg(j.hips, [
+    part(CG.cap(0.14, 0.06), PANTS, { p: [0, -0.02, 0], s: [1.28, 0.75, 0.86], ...cl }),
+    part(CG.cyl(0.162, 0.162, 0.04, 12), 0x1e1a16, { p: [0, 0.035, 0], s: [1, 1, 0.78] }),
+    outfit === 'lab' ? part(CG.cyl(0.175, 0.245, 0.6, 12, true, 0.45, Math.PI * 2 - 0.9), CLOTH, { p: [0, -0.28, 0], ...cl, blood: 0.55 }) : null,
+  ], M);
+  seg(j.spine, [
+    part(CG.cap(0.12, 0.1), INNER, { p: [0, 0.1, 0], s: [1.16, 1, 0.8], ...cl }),
+    outfit !== 'shirt' ? part(CG.cap(0.128, 0.08), CLOTH, { p: [0, 0.11, -0.008], s: [1.22, 1, 0.82], ...cl }) : null,
+    outfit !== 'shirt' ? part(CG.box(0.07, 0.17, 0.02), INNER, { p: [0, 0.1, 0.112], ...cl }) : null,
+    part(CG.sph(0.045, 8, 6), WOUND, { p: [0.05, 0.09, 0.105], s: [1, 1.2, 0.4] }),
+  ], M);
+  const ribParts = [];
+  if (ribs) {
+    ribParts.push(part(CG.sph(0.06, 8, 6), CAVITY, { p: [0.09, 0.09, 0.1], s: [1, 1.25, 0.5] }));
+    for (let i = 0; i < 3; i++) ribParts.push(part(CG.box(0.075, 0.012, 0.02), BONE, { p: [0.09, 0.05 + i * 0.035, 0.122], r: [0, 0, 0.3], dirt: 0.4 }));
+  }
+  seg(j.chest, [
+    part(CG.cap(0.15, 0.1), INNER, { p: [0, 0.11, 0], s: [1.22, 1, 0.78], ...cl }),
+    outfit !== 'shirt' ? part(CG.cap(0.158, 0.08), CLOTH, { p: [0, 0.11, -0.01], s: [1.24, 1, 0.8], ...cl }) : null,
+    outfit !== 'shirt' ? part(CG.box(0.07, 0.2, 0.02), INNER, { p: [0, 0.12, 0.118], ...cl }) : null,
+    outfit === 'suit' ? part(CG.box(0.03, 0.15, 0.012), 0x5a1010, { p: [0, 0.12, 0.13] }) : null,
+    outfit === 'suit' || outfit === 'lab' ? part(CG.box(0.05, 0.16, 0.012), CLOTH, { p: [0.05, 0.15, 0.124], r: [0, 0, -0.35], ...cl }) : null,
+    outfit === 'suit' || outfit === 'lab' ? part(CG.box(0.05, 0.16, 0.012), CLOTH, { p: [-0.05, 0.15, 0.124], r: [0, 0, 0.35], ...cl }) : null,
+    part(CG.cyl(0.07, 0.085, 0.045, 10), INNER, { p: [0, 0.235, 0], ...cl }),
+    ...ribParts,
+  ], M);
+  seg(j.neck, [part(CG.cyl(0.04, 0.048, 0.09, 8), SKIN, { p: [0, 0.035, 0], ...sk })], M);
+  const headParts = [
+    part(CG.sph(0.1, 14, 12), SKIN, { p: [0, 0.09, 0], s: [0.92, 1.12, 1.0], ...sk }),
+    part(new THREE.SphereGeometry(0.109, 12, 6, rng() * 6, Math.PI * (0.7 + rng() * 0.6), 0, Math.PI * 0.45), HAIR, { p: [0, 0.1, -0.006], s: [0.96, 1.1, 1.04], vary: 0.3, seed }),
+    part(CG.box(0.075, 0.03, 0.075), SKIN, { p: [0, 0.012, 0.045], r: [0.45, 0, 0], ...sk, blood: 0.75 }),
+    part(CG.box(0.05, 0.035, 0.02), 0x140404, { p: [0, 0.04, 0.094] }),
+    part(CG.box(0.042, 0.009, 0.01), 0xb0a478, { p: [0, 0.054, 0.099] }),
+    part(CG.box(0.038, 0.008, 0.01), 0xa09060, { p: [0, 0.03, 0.088], r: [0.45, 0, 0] }),
+    part(CG.box(0.018, 0.026, 0.016), SKIN_D, { p: [0, 0.075, 0.103] }),
+    part(CG.box(0.09, 0.016, 0.02), SKIN_D, { p: [0, 0.122, 0.092] }),
+    part(CG.sph(0.022, 8, 6), WOUND, { p: [pick([0.06, -0.06]), 0.06, 0.07], s: [1, 1, 0.5] }),
+  ];
+  for (const sx of [1, -1]) {
+    headParts.push(part(CG.sph(0.024, 8, 6), 0x1a0e0c, { p: [0.036 * sx, 0.1, 0.086], s: [1, 0.85, 0.55] }));
+    if (missingEar !== sx) headParts.push(part(CG.sph(0.02, 8, 6), SKIN, { p: [0.096 * sx, 0.085, 0], s: [0.45, 1, 0.75], ...sk }));
+    else headParts.push(part(CG.sph(0.018, 6, 4), WOUND, { p: [0.094 * sx, 0.085, 0], s: [0.4, 1, 0.8] }));
+  }
+  seg(j.head, headParts, M);
+  const eyes = new THREE.Mesh(mergeParts([1, -1].map((sx) => part(CG.sph(0.009, 6, 4), 0xffffff, { p: [0.036 * sx, 0.1, 0.094] }))), CHAR_MAT.eyeZ);
+  j.head.add(eyes);
+  for (const [s, sx] of [['L', 1], ['R', -1]]) {
+    const torn = tornSleeve === s;
+    seg(j['sh' + s], [
+      part(CG.sph(0.06, 10, 8), CLOTH, { p: [0, -0.01, 0], ...cl }),
+      part(CG.cap(0.05, 0.2), torn ? SKIN : CLOTH, { p: [0, -0.14, 0], ...(torn ? sk : cl) }),
+      torn ? part(CG.cyl(0.056, 0.052, 0.07, 8, true), CLOTH, { p: [0, -0.04, 0], ...cl }) : null,
+      torn ? part(CG.sph(0.025, 6, 4), WOUND, { p: [0.04 * sx, -0.15, 0.02], s: [0.6, 1.3, 0.8] }) : null,
+    ], M);
+    seg(j['el' + s], [
+      part(CG.cap(0.042, 0.17), outfit === 'lab' && !torn ? CLOTH : SKIN, { p: [0, -0.12, 0], ...(outfit === 'lab' && !torn ? cl : sk), blood: 0.45 }),
+    ], M);
+    const fingers = [];
+    for (let k = 0; k < 3; k++) {
+      const fx = (k - 1) * 0.022;
+      fingers.push(part(CG.box(0.016, 0.06, 0.016), SKIN, { p: [fx, -0.105, 0.012], r: [-0.5, 0, 0], ...sk }));
+      fingers.push(part(CG.box(0.014, 0.012, 0.012), 0x2a2018, { p: [fx, -0.135, 0.03], r: [-0.5, 0, 0] }));
+    }
+    seg(j['ha' + s], [
+      part(CG.box(0.07, 0.075, 0.032), SKIN, { p: [0, -0.04, 0], ...sk }),
+      part(CG.box(0.02, 0.05, 0.02), SKIN, { p: [-sx * 0.038, -0.04, 0.016], r: [0, 0, sx * 0.5], ...sk }),
+      ...fingers,
+    ], M);
+    seg(j['th' + s], [part(CG.cap(0.072, 0.3), PANTS, { p: [0, -0.21, 0], ...cl })], M);
+    const bareS = bareShin === s;
+    seg(j['kn' + s], [
+      part(CG.cap(bareS ? 0.05 : 0.058, 0.3), bareS ? SKIN : PANTS, { p: [0, -0.2, 0], ...(bareS ? sk : cl), blood: 0.5 }),
+      bareS ? part(CG.cyl(0.066, 0.06, 0.08, 8, true), PANTS, { p: [0, -0.02, 0], ...cl }) : null,
+    ], M);
+    const bare = bareFoot === s;
+    seg(j['ft' + s], [
+      part(CG.box(bare ? 0.08 : 0.09, 0.06, 0.23), bare ? SKIN : 0x1c1814, { p: [0, -0.012, 0.045], ...(bare ? { ...sk, dirt: 0.8 } : { dirt: 0.4, seed }) }),
+    ], M);
+  }
+  return rig;
+}
+
+// ---- ボス「大型変異体」（肥大化した右腕と骨の爪、露出した心臓、背中の骨棘） ----
+function buildBossRig() {
+  const rig = buildRigSkeleton(), j = rig.j, M = CHAR_MAT.boss;
+  const SKIN = 0x6e2c26, DARK = 0x3a1410, BONE = 0xd6caae, CAV = 0x140000;
+  const sk = { vary: 0.3, dirt: 0.65, dirtColor: new THREE.Color(0x2a0818), blood: 0.3, seed: 7 };
+  rig.seed = 7; rig.limp = 0; rig.oneArm = false; rig.tilt = 0.4;
+  seg(j.hips, [
+    part(CG.cap(0.15, 0.06), DARK, { p: [0, -0.02, 0], s: [1.5, 0.8, 1.05], ...sk }),
+    part(CG.cyl(0.2, 0.27, 0.32, 10, true), 0x2a241c, { p: [0, -0.15, 0], dirt: 0.6, blood: 0.5, seed: 7 }),
+  ], M);
+  seg(j.spine, [part(CG.cap(0.15, 0.12), SKIN, { p: [0, 0.11, 0], s: [1.35, 1, 0.95], ...sk })], M);
+  const chest = [
+    part(CG.cap(0.2, 0.12), SKIN, { p: [0, 0.13, 0], s: [1.5, 1, 1.0], ...sk }),
+    part(CG.sph(0.15, 10, 8), SKIN, { p: [-0.17, 0.2, -0.04], ...sk }),
+    part(CG.sph(0.075, 10, 8), CAV, { p: [-0.04, 0.13, 0.15], s: [1, 1.25, 0.6] }),
+  ];
+  for (let i = 0; i < 4; i++) {
+    chest.push(part(CG.box(0.07, 0.014, 0.022), BONE, { p: [-0.11, 0.07 + i * 0.035, 0.15], r: [0, 0, -0.35], dirt: 0.3, seed: 7 }));
+    chest.push(part(CG.box(0.07, 0.014, 0.022), BONE, { p: [0.03, 0.07 + i * 0.035, 0.162], r: [0, 0, 0.35], dirt: 0.3, seed: 7 }));
+  }
+  for (let i = 0; i < 5; i++) chest.push(part(CG.cone(0.03, 0.18), BONE, { p: [i % 2 ? 0.06 : -0.06, 0.0 + i * 0.06, -0.17], r: [-1.1, 0, 0], dirt: 0.4, seed: 7 }));
+  seg(j.chest, chest, M);
+  const heart = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), CHAR_MAT.heart);
+  heart.geometry.userData.owned = true;
+  heart.position.set(-0.04, 0.13, 0.165); heart.scale.set(1, 1.2, 0.9); j.chest.add(heart);
+  seg(j.neck, [part(CG.cyl(0.085, 0.1, 0.1, 10), SKIN, { p: [0, 0.03, 0], ...sk })], M);
+  const head = [
+    part(CG.sph(0.095, 12, 10), SKIN, { p: [0, 0.08, 0.01], s: [1.05, 1.0, 1.12], ...sk }),
+    part(CG.box(0.13, 0.03, 0.05), DARK, { p: [0, 0.115, 0.085] }),
+    part(CG.box(0.07, 0.05, 0.03), 0x100000, { p: [0, 0.035, 0.09] }),
+    part(CG.cone(0.03, 0.13), BONE, { p: [0.06, 0.17, 0], r: [0, 0, -0.5] }),
+  ];
+  for (const sx of [1, -1]) {
+    head.push(part(CG.box(0.028, 0.095, 0.03), BONE, { p: [0.04 * sx, 0.0, 0.095], r: [0.2, 0, 0.25 * sx] }));
+    for (const tx of [0.015, 0.035]) head.push(part(CG.cone(0.006, 0.025, 4), BONE, { p: [tx * sx, 0.048, 0.1], r: [Math.PI, 0, 0] }));
+  }
+  seg(j.head, head, M);
+  const eyes = new THREE.Mesh(mergeParts([
+    part(CG.sph(0.024, 8, 6), 0xffffff, { p: [0.035, 0.095, 0.1] }),
+    part(CG.sph(0.012, 6, 4), 0xffffff, { p: [-0.035, 0.1, 0.098] }),
+    part(CG.sph(0.008, 6, 4), 0xffffff, { p: [-0.015, 0.14, 0.093] }),
+  ]), CHAR_MAT.eyeBoss);
+  j.head.add(eyes);
+  // 右腕（肥大化）
+  seg(j.shR, [
+    part(CG.sph(0.12, 10, 8), SKIN, { p: [0, 0, 0], ...sk }),
+    part(CG.cap(0.095, 0.2), SKIN, { p: [0, -0.15, 0], s: [1.15, 1, 1.1], ...sk }),
+    part(CG.cone(0.03, 0.15), BONE, { p: [-0.07, 0.06, -0.03], r: [0, 0, 0.8] }),
+    part(CG.cone(0.025, 0.12), BONE, { p: [-0.05, 0.08, 0.04], r: [0.3, 0, 0.6] }),
+  ], M);
+  seg(j.elR, [
+    part(CG.cap(0.11, 0.17), SKIN, { p: [0, -0.13, 0], s: [1.2, 1, 1.1], ...sk }),
+    part(CG.cone(0.025, 0.14), BONE, { p: [-0.09, -0.1, 0], r: [0, 0, 1.2] }),
+  ], M);
+  seg(j.haR, [
+    part(CG.box(0.15, 0.12, 0.09), SKIN, { p: [0, -0.06, 0], ...sk }),
+    ...[-0.045, 0, 0.045].map((x) => part(CG.cone(0.022, 0.3, 5), BONE, { p: [x, -0.26, 0.02], r: [Math.PI, 0, 0], dirt: 0.5, seed: 7 })),
+  ], M);
+  // 左腕
+  seg(j.shL, [part(CG.sph(0.075, 10, 8), SKIN, { ...sk }), part(CG.cap(0.062, 0.2), SKIN, { p: [0, -0.14, 0], ...sk })], M);
+  seg(j.elL, [part(CG.cap(0.055, 0.17), SKIN, { p: [0, -0.12, 0], ...sk })], M);
+  seg(j.haL, [
+    part(CG.box(0.08, 0.085, 0.04), SKIN, { p: [0, -0.045, 0], ...sk }),
+    ...[-0.025, 0, 0.025].map((x) => part(CG.cone(0.01, 0.09, 4), BONE, { p: [x, -0.12, 0.01], r: [Math.PI, 0, 0] })),
+  ], M);
+  for (const s of ['L', 'R']) {
+    seg(j['th' + s], [part(CG.cap(0.095, 0.26), SKIN, { p: [0, -0.21, 0], s: [1.1, 1, 1.1], ...sk })], M);
+    seg(j['kn' + s], [part(CG.cap(0.078, 0.28), SKIN, { p: [0, -0.2, 0], ...sk }), part(CG.cone(0.02, 0.08), BONE, { p: [0, -0.02, 0.07], r: [Math.PI / 2, 0, 0] })], M);
+    seg(j['ft' + s], [
+      part(CG.box(0.12, 0.075, 0.27), SKIN, { p: [0, -0.005, 0.05], ...sk }),
+      ...[-0.035, 0, 0.035].map((x) => part(CG.cone(0.014, 0.06, 4), BONE, { p: [x, -0.02, 0.2], r: [Math.PI / 2, 0, 0] })),
+    ], M);
+  }
+  rig.heart = heart;
+  return rig;
+}
+
+// ---- 武器モデル（バレルは +Z。グリップ中心はおよそ (0,-0.06,-0.06)） ----
+function buildPistol() {
   const g = new THREE.Group();
-  const m = new THREE.Mesh(fallbackGeo.gun, fallbackMat.gun); m.castShadow = true; g.add(m);
-  return g;
+  const mesh = new THREE.Mesh(mergeParts([
+    part(CG.box(0.03, 0.034, 0.19), 0x2c2e32, { p: [0, 0.022, 0.005] }),
+    ...[0, 1, 2, 3, 4].map((i) => part(CG.box(0.031, 0.026, 0.004), 0x18191c, { p: [0, 0.024, -0.075 + i * 0.008] })),
+    part(CG.box(0.028, 0.022, 0.15), 0x1a1a1c, { p: [0, -0.004, 0.01] }),
+    part(CG.box(0.03, 0.105, 0.045), 0x202022, { p: [0, -0.06, -0.06], r: [0.28, 0, 0] }),
+    part(CG.box(0.024, 0.005, 0.045), 0x111111, { p: [0, -0.035, 0.012] }),
+    part(CG.box(0.006, 0.02, 0.006), 0x111111, { p: [0, -0.022, 0.004] }),
+    part(CG.cyl(0.006, 0.006, 0.01, 8), 0x050505, { p: [0, 0.022, 0.1], r: [Math.PI / 2, 0, 0] }),
+    part(CG.box(0.005, 0.008, 0.008), 0x111111, { p: [0, 0.042, 0.09] }),
+    part(CG.box(0.02, 0.008, 0.008), 0x111111, { p: [0, 0.042, -0.082] }),
+  ]), CHAR_MAT.gun);
+  mesh.castShadow = true; g.add(mesh);
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.022, 0.105); g.add(muzzle);
+  return { obj: g, muzzle };
+}
+function buildRevolver() {
+  const g = new THREE.Group(), STEEL = 0x9ca2a8;
+  const mesh = new THREE.Mesh(mergeParts([
+    part(CG.cyl(0.011, 0.011, 0.16, 10), STEEL, { p: [0, 0.025, 0.075], r: [Math.PI / 2, 0, 0] }),
+    part(CG.box(0.012, 0.009, 0.16), STEEL, { p: [0, 0.037, 0.075] }),
+    part(CG.cyl(0.005, 0.005, 0.12, 6), 0x7a8086, { p: [0, 0.008, 0.06], r: [Math.PI / 2, 0, 0] }),
+    part(CG.cyl(0.023, 0.023, 0.046, 8), 0x7a8086, { p: [0, 0.018, -0.025], r: [Math.PI / 2, 0, 0] }),
+    part(CG.box(0.024, 0.042, 0.075), STEEL, { p: [0, 0.015, -0.03] }),
+    part(CG.box(0.008, 0.02, 0.016), 0x5a5e62, { p: [0, 0.044, -0.068], r: [0.5, 0, 0] }),
+    part(CG.box(0.028, 0.1, 0.042), 0x5a3418, { p: [0, -0.05, -0.075], r: [0.35, 0, 0], vary: 0.3 }),
+    part(CG.box(0.022, 0.005, 0.04), 0x5a5e62, { p: [0, -0.022, -0.02] }),
+    part(CG.box(0.004, 0.012, 0.01), 0x5a5e62, { p: [0, 0.044, 0.148] }),
+    part(CG.cyl(0.006, 0.006, 0.006, 8), 0x050505, { p: [0, 0.025, 0.156], r: [Math.PI / 2, 0, 0] }),
+  ]), CHAR_MAT.gun);
+  mesh.castShadow = true; g.add(mesh);
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.025, 0.16); g.add(muzzle);
+  return { obj: g, muzzle };
+}
+
+// ---- ポーズ（関節ごとの目標角を積み上げ、指数減衰で近づける） ----
+function rigBegin(rig) { for (const jn of rig.list) jn.userData.t.set(0, 0, 0); rig.hipsY = 0.95; }
+function RA(jn, x = 0, y = 0, z = 0) { const t = jn.userData.t; t.x += x; t.y += y; t.z += z; }
+function rigApply(rig, dt, k) {
+  const f = 1 - Math.exp(-k * dt);
+  for (const jn of rig.list) {
+    const t = jn.userData.t;
+    jn.rotation.x += (t.x - jn.rotation.x) * f; jn.rotation.y += (t.y - jn.rotation.y) * f; jn.rotation.z += (t.z - jn.rotation.z) * f;
+  }
+  rig.j.hips.position.y += (rig.hipsY - rig.j.hips.position.y) * f;
+}
+function posePlayerRig(rig, dt) {
+  const a = rig.j;
+  rig.t += dt;
+  rigBegin(rig);
+  const sp = player.speed, w = clamp(sp / CONFIG.player.walk, 0, 1);
+  const run = clamp((sp - CONFIG.player.walk) / (CONFIG.player.run - CONFIG.player.walk), 0, 1);
+  rig.ph += dt * sp / lerp(1.3, 2.1, run) * Math.PI * 2;
+  const ph = rig.ph;
+  rig.aimW = damp(rig.aimW, player.aiming && !player.dead ? 1 : 0, 14, dt);
+  const aimW = rig.aimW;
+  const rl = player.reloadTimer > 0 ? 1 - player.reloadTimer / CONFIG[state.weapon].reload : -1;
+  rig.relW = damp(rig.relW, rl >= 0 ? 1 : 0, 12, dt);
+  const relW = rig.relW, hurt = player.hurtTimer / 0.35, breath = Math.sin(rig.t * 1.8);
+  // 脚
+  const amp = lerp(0.42, 0.8, run) * w;
+  RA(a.thL, -Math.sin(ph) * amp); RA(a.thR, Math.sin(ph) * amp);
+  RA(a.knL, Math.max(0, Math.sin(ph - 1.4)) * (0.7 + 0.7 * run) * w + 0.05);
+  RA(a.knR, Math.max(0, Math.sin(ph + Math.PI - 1.4)) * (0.7 + 0.7 * run) * w + 0.05);
+  RA(a.ftL, -Math.max(0, Math.sin(ph - 1.4)) * 0.3 * w); RA(a.ftR, -Math.max(0, Math.sin(ph + Math.PI - 1.4)) * 0.3 * w);
+  rig.hipsY += -0.02 * w - 0.03 * run + Math.abs(Math.cos(ph)) * 0.035 * w;
+  RA(a.hips, 0, Math.sin(ph) * 0.1 * w);
+  RA(a.spine, 0.06 * w + 0.18 * run);
+  RA(a.chest, breath * 0.02, -Math.sin(ph) * 0.12 * w * (1 - aimW));
+  // 腕（通常時：左は振り、右は銃を低く構える）
+  const free = (1 - aimW) * (1 - relW);
+  const swing = Math.sin(ph) * lerp(0.35, 0.9, run) * w * free;
+  RA(a.shL, swing, 0, 0.1 * free); RA(a.elL, (-0.25 - 0.9 * run * w) * free);
+  RA(a.shR, (-0.4 - swing * 0.3) * free, 0.1 * free, -0.12 * free); RA(a.elR, (-0.65 - 0.6 * run) * free); RA(a.haR, -0.35 * free);
+  // 構え（両手保持、ピッチ追従、反動）
+  const p = camState.pitch, rc = player.recoil;
+  if (aimW > 0.001) {
+    RA(a.shR, (-Math.PI / 2 - p - rc * 0.9) * aimW, 0.12 * aimW); RA(a.elR, -rc * 0.6 * aimW); RA(a.haR, -rc * 0.5 * aimW);
+    RA(a.shL, (-Math.PI / 2 - p + 0.3) * aimW, -0.6 * aimW); RA(a.elL, -0.55 * aimW);
+    RA(a.chest, -p * 0.25 * aimW, 0.22 * aimW); RA(a.spine, -p * 0.15 * aimW, 0.08 * aimW); RA(a.head, -p * 0.45 * aimW, -0.28 * aimW);
+  }
+  // リロード（銃を胸元へ、左手で腰のマガジンを取って差し込む）
+  if (relW > 0.001) {
+    const r = Math.max(0, rl);
+    let lx, ly, le;
+    if (r < 0.35) { const k = r / 0.35; lx = lerp(-0.9, 0.25, k); ly = lerp(-0.6, 0, k); le = lerp(-1.3, -0.5, k); }
+    else if (r < 0.75) { const k = (r - 0.35) / 0.4; lx = lerp(0.25, -0.95, k); ly = lerp(0, -0.65, k); le = lerp(-0.5, -1.4, k); }
+    else { const k = (r - 0.75) / 0.25; lx = -0.95 + Math.sin(k * Math.PI) * 0.15; ly = -0.65; le = -1.4; }
+    RA(a.shR, -1.05 * relW, 0.45 * relW); RA(a.elR, -1.45 * relW); RA(a.haR, 0.3 * relW);
+    RA(a.shL, lx * relW, ly * relW); RA(a.elL, le * relW); RA(a.head, 0.35 * relW);
+  }
+  if (hurt > 0) { RA(a.spine, -0.35 * hurt); RA(a.head, -0.3 * hurt, 0, 0.2 * hurt); RA(a.shL, 0, 0, 0.5 * hurt); }
+  if (player.dead) { RA(a.shL, -0.4, 0, 1.3); RA(a.shR, -0.4, 0, -1.3); RA(a.knL, 0.5); RA(a.knR, 0.2); RA(a.thL, -0.3); RA(a.head, 0, 0.5, 0.3); }
+  RA(a.head, breath * 0.015, Math.sin(rig.t * 0.37) * 0.15 * (1 - aimW) * (1 - w));
+  if (hpState(state.player.hp) === 'danger' && !player.dead) { RA(a.spine, 0.12); RA(a.shL, -0.3, 0, 0.1); RA(a.elL, -0.9); }   // 脇腹を押さえる
+  rigApply(rig, dt, 16);
+}
+function poseZombieRig(rig, e, dt, isBoss) {
+  const a = rig.j;
+  rig.t += dt;
+  rigBegin(rig);
+  const t = rig.t, s = rig.seed, ai = e.ai;
+  const sp = e.speed || 0, w = clamp(sp / (isBoss ? 1.6 : 1.3), 0, 1.4);
+  rig.ph += dt * sp / (isBoss ? 2.2 : 1.1) * Math.PI * 2;
+  const ph = rig.ph, fall = e.fallT || 0, up = 1 - fall;
+  // 前かがみ・首の傾き
+  RA(a.spine, 0.22 * up); RA(a.chest, 0.14 * up); RA(a.neck, 0.18 * up);
+  RA(a.head, 0, 0, (0.22 * rig.tilt + Math.sin(t * 0.8 + s) * 0.1) * up);
+  // すり足（片足を引きずる）
+  const amp = (isBoss ? 0.5 : 0.38) * w;
+  RA(a.thL, -Math.sin(ph) * amp * (rig.limp === 1 ? 0.55 : 1));
+  RA(a.thR, Math.sin(ph) * amp * (rig.limp === 2 ? 0.55 : 1));
+  RA(a.knL, (Math.max(0, Math.sin(ph - 1.3)) * 0.6 * w * (rig.limp === 1 ? 0.4 : 1) + 0.12) * up);
+  RA(a.knR, (Math.max(0, Math.sin(ph + Math.PI - 1.3)) * 0.6 * w * (rig.limp === 2 ? 0.4 : 1) + 0.12) * up);
+  if (rig.limp === 1) RA(a.ftL, 0.3 * w); else if (rig.limp === 2) RA(a.ftR, 0.3 * w);
+  rig.hipsY += (Math.abs(Math.cos(ph)) * 0.03 * w - 0.03 - 0.02 * w) * up;
+  RA(a.hips, 0, Math.sin(ph) * 0.12 * w, Math.sin(ph) * 0.06 * w); RA(a.chest, 0, 0, -Math.sin(ph) * 0.1 * w);
+  // 腕：追跡中は前へ伸ばす
+  const chasing = ai === 'chase' || ai === 'alert' || ai === 'attack' || (isBoss && ai === 'approach');
+  rig.reach = damp(rig.reach, chasing ? 1 : 0, 4, dt);
+  const rch = rig.reach * up;
+  RA(a.shL, (Math.sin(ph) * 0.25 * w * (1 - rch) + (-1.25 + Math.sin(t * 1.3 + s) * 0.12) * rch * (rig.oneArm ? 0.25 : 1)) * up, 0, 0.08);
+  RA(a.shR, (-Math.sin(ph) * 0.25 * w * (1 - rch) + (-1.3 + Math.sin(t * 1.1 + s * 2) * 0.12) * rch) * up, 0, -0.08);
+  RA(a.elL, -0.2 - 0.25 * rch); RA(a.elR, -0.2 - 0.25 * rch); RA(a.haL, 0.3 * rch); RA(a.haR, 0.3 * rch);
+  if (!isBoss) {
+    if (ai === 'attack') {
+      if (e.attackTimer > 0) {
+        const k = 1 - e.attackTimer / CONFIG.zombie.attackWindup;
+        RA(a.shL, -1.4 * k); RA(a.shR, -1.4 * k); RA(a.spine, -0.35 * k); RA(a.head, -0.3 * k); RA(a.elL, -0.5 * k); RA(a.elR, -0.5 * k);
+      } else {
+        const k = clamp(e.timer / 0.6, 0, 1);
+        RA(a.shL, 0.4 * k); RA(a.shR, 0.4 * k); RA(a.spine, 0.45 * k); RA(a.neck, 0.3 * k);
+      }
+    }
+    if (ai === 'flinch') { const k = clamp(e.flinchTimer / CONFIG.zombie.flinch, 0, 1); RA(a.spine, -0.55 * k); RA(a.head, -0.45 * k); RA(a.shL, 0, 0, 0.7 * k); RA(a.shR, 0, 0, -0.7 * k); }
+    if (ai === 'alert') { RA(a.neck, -0.2); RA(a.head, -0.15); }
+  } else {
+    switch (ai) {
+      case 'rise': RA(a.shL, -2.3); RA(a.shR, -2.3); RA(a.head, -0.5); RA(a.spine, -0.2); break;
+      case 'swing': { const k = 1 - clamp(e.timer / 0.8, 0, 1); RA(a.shR, -2.7 * k, 0, -0.3 * k); RA(a.elR, -0.6 * k); RA(a.spine, -0.3 * k); RA(a.chest, 0, 0.45 * k); break; }
+      case 'recover': RA(a.shR, 0.5); RA(a.elR, -0.2); RA(a.spine, 0.6); RA(a.chest, 0, -0.3); break;
+      case 'chargeWind': RA(a.knL, 0.6); RA(a.knR, 0.6); RA(a.thL, -0.45); RA(a.thR, -0.45); RA(a.spine, 0.5); RA(a.shL, 0.6); RA(a.shR, 0.6); RA(a.head, -0.6); rig.hipsY -= 0.12; break;
+      case 'charge': RA(a.spine, 0.75); RA(a.shL, 0.9); RA(a.shR, 0.9); RA(a.head, -0.4); break;
+      case 'stun': RA(a.spine, 0.9); RA(a.neck, 0.5); RA(a.shL, 0.2, 0, 0.2); RA(a.shR, 0.2, 0, -0.2); RA(a.knL, 0.4); RA(a.knR, 0.4); rig.hipsY -= 0.08; break;
+      case 'stagger': RA(a.spine, -0.45); RA(a.head, -0.4); RA(a.shL, 0, 0, 0.6); RA(a.shR, 0, 0, -0.6); break;
+      default: break;
+    }
+    if (rig.heart) {
+      const rate = ai === 'charge' || ai === 'chargeWind' ? 12 : 5;
+      const beat = Math.max(0, Math.sin(t * rate));
+      rig.heart.scale.set(1 + beat * 0.2, 1.2 + beat * 0.25, 0.9 + beat * 0.15);
+      CHAR_MAT.heart.emissiveIntensity = ai === 'dead' || ai === 'dying' ? 0.1 : 0.6 + beat * 0.8;
+    }
+  }
+  // ダウン・死亡（仰向けに倒れたまま手足を投げ出す）
+  if (fall > 0.001) {
+    RA(a.shL, -0.3 * fall, 0, 1.35 * fall); RA(a.shR, -0.3 * fall, 0, -1.35 * fall); RA(a.elL, -0.4 * fall); RA(a.elR, -0.3 * fall);
+    RA(a.knL, 0.45 * fall); RA(a.knR, 0.15 * fall); RA(a.thL, -0.25 * fall); RA(a.head, 0, 0.7 * fall, 0.25 * fall);
+    if (ai === 'down' && e.willRevive) { RA(a.haR, Math.sin(t * 9) * 0.35); RA(a.head, 0, Math.sin(t * 5) * 0.15); RA(a.shR, -0.6 * Math.max(0, Math.sin(t * 1.7))); }
+  }
+  rigApply(rig, dt, isBoss ? 10 : 12);
 }
 
 // 銃GLBの最長軸を+Zへ向け、長さをCONFIG.gun.lengthに合わせ、中心を原点へ
@@ -1237,40 +1977,58 @@ const raycaster = new THREE.Raycaster();
 let flashlight = null, flashFlicker = 0;
 let muzzleLight = null, muzzleSprite = null, muzzleTimer = 0;
 
+function useProceduralPlayer() { return CONFIG.characters === 'procedural' || !assets.player; }
+function useProceduralZombie() { return CONFIG.characters === 'procedural' || !assets.zombie; }
 function buildPlayerView() {
   const wrapper = new THREE.Group();
   const proc = new THREE.Group(); wrapper.add(proc);
-  const yawG = new THREE.Group(); yawG.rotation.y = CONFIG.player.modelYaw; proc.add(yawG);
-  let model, animSet, fallback = false;
-  if (assets.player) {
+  const yawG = new THREE.Group(); proc.add(yawG);
+  let model, animSet, rig = null;
+  if (!useProceduralPlayer()) {
     model = assets.player.scene;
     prepareModel(model, CONFIG.player.height);
     animSet = buildAnimSet(assets.player.animations, model, 'player');
+    yawG.rotation.y = CONFIG.player.modelYaw;
   } else {
-    model = makeFallbackPlayer(); fallback = true;
+    rig = buildPlayerRig();
+    model = rig.root;
     animSet = buildAnimSet([], model, 'player');
+    console.log('[CHAR] プレイヤー：手続きキャラクター（関節リグ）を使用');
   }
   yawG.add(model);
   scene.add(wrapper);
   const animator = createAnimator(model, animSet);
-  // ---- 銃 ----
-  const gunContent = assets.gun ? alignGun(assets.gun.scene) : makeFallbackGun();
-  const gunPivot = new THREE.Group(); gunPivot.add(gunContent);
-  const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0, CONFIG.gun.length / 2); gunPivot.add(muzzle);
+  // ---- 武器（ハンドガン＝銃GLB または手続きモデル、マグナム＝手続きリボルバー） ----
+  const weapons = {};
+  if (assets.gun) {
+    const obj = alignGun(assets.gun.scene);
+    const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0, CONFIG.gun.length / 2); obj.add(muzzle);
+    weapons.handgun = { obj, muzzle };
+  } else weapons.handgun = buildPistol();
+  weapons.magnum = buildRevolver();
+  weapons.magnum.obj.visible = false;
+  const gunPivot = new THREE.Group(); gunPivot.add(weapons.handgun.obj, weapons.magnum.obj);
   wrapper.updateMatrixWorld(true);
-  const hb = fallback ? { bone: null, how: 'フォールバックモデル（右肩前方に固定）' } : findHandBone(model, wrapper);
-  let boneScale = 1;
-  if (hb.bone) {
-    const ws = hb.bone.getWorldScale(new THREE.Vector3());
-    boneScale = (Math.abs(ws.x) + Math.abs(ws.y) + Math.abs(ws.z)) / 3 || 1;
-    hb.bone.add(gunPivot);
-    gunPivot.position.set(CONFIG.gun.position[0] / boneScale, CONFIG.gun.position[1] / boneScale, CONFIG.gun.position[2] / boneScale);
-    gunPivot.scale.setScalar(1 / boneScale);
+  let hb, boneScale = 1;
+  if (rig) {
+    hb = { bone: null, how: '手続きキャラクターの右手' };
+    rig.j.haR.add(gunPivot);
+    gunPivot.position.set(0, -0.105, 0.06);
+    gunPivot.rotation.set(Math.PI / 2, 0, 0);
   } else {
-    proc.add(gunPivot);
-    gunPivot.position.set(-0.22, 1.3, 0.38);
+    hb = findHandBone(model, wrapper);
+    if (hb.bone) {
+      const ws = hb.bone.getWorldScale(new THREE.Vector3());
+      boneScale = (Math.abs(ws.x) + Math.abs(ws.y) + Math.abs(ws.z)) / 3 || 1;
+      hb.bone.add(gunPivot);
+      gunPivot.position.set(CONFIG.gun.position[0] / boneScale, CONFIG.gun.position[1] / boneScale, CONFIG.gun.position[2] / boneScale);
+      gunPivot.scale.setScalar(1 / boneScale);
+    } else {
+      proc.add(gunPivot);
+      gunPivot.position.set(-0.22, 1.3, 0.38);
+    }
+    gunPivot.rotation.set(CONFIG.gun.rotation[0], CONFIG.gun.rotation[1], CONFIG.gun.rotation[2]);
   }
-  gunPivot.rotation.set(CONFIG.gun.rotation[0], CONFIG.gun.rotation[1], CONFIG.gun.rotation[2]);
   console.log(`[GUN] 取り付け先: ${hb.how} / ボーンのワールドスケール補正: ${(1 / boneScale).toFixed(4)}`);
   // aimクリップが無い場合の手続き的エイム用：手→前腕→上腕のボーン
   let armBone = null;
@@ -1287,7 +2045,7 @@ function buildPlayerView() {
   }
   const realAim = !!(animSet.roles.aim && ANIM_REGEX.aim.test(animSet.roles.aim.clip.name));
   player.view = {
-    wrapper, proc, yawG, model, animator, gunPivot, muzzle, gunInfo: hb.how, fallback,
+    wrapper, proc, yawG, model, animator, gunPivot, weapons, rig, gunInfo: hb.how,
     handBone: hb.bone, armBone, armRest: armBone ? armBone.quaternion.clone() : null, realAim, aimW: 0,
   };
   if (armBone) console.log(`[GUN] 手続き的エイム用の上腕ボーン: ${armBone.name}${realAim ? '（aimクリップがあるため未使用）' : ''}`);
@@ -1306,6 +2064,7 @@ function buildPlayerView() {
   scene.add(muzzleSprite);
 }
 
+function currentMuzzle() { const v = player.view; return (v.weapons[state.weapon] || v.weapons.handgun).muzzle; }
 function hpState(hp) { return hp >= 66 ? 'fine' : hp >= 33 ? 'caution' : 'danger'; }
 function currentRoom() { return rooms[state.room]; }
 
@@ -1328,21 +2087,25 @@ function updatePlayer(dt) {
     player.reloadTimer -= dt;
     if (player.reloadTimer <= 0) finishReload();
   }
-  player.aiming = Input.rmb;
-  // 移動入力（カメラ基準）
-  let ix = 0, iz = 0;
+  player.aiming = Input.rmb || padHeld('aim');
+  // 移動入力（カメラ基準）：キーボード、無ければゲームパッドのスティック/十字キー（アナログ量で速度が変わる）
+  let ix = 0, iz = 0, analog = 1;
   if (Input.isDown('KeyW') || Input.isDown('ArrowUp')) iz += 1;
   if (Input.isDown('KeyS') || Input.isDown('ArrowDown')) iz -= 1;
   if (Input.isDown('KeyD') || Input.isDown('ArrowRight')) ix += 1;
   if (Input.isDown('KeyA') || Input.isDown('ArrowLeft')) ix -= 1;
+  if (ix === 0 && iz === 0 && (Pad.move.x || Pad.move.y)) {
+    ix = Pad.move.x; iz = -Pad.move.y; analog = clamp(Math.hypot(ix, iz), 0, 1);
+  }
   const hasInput = ix !== 0 || iz !== 0;
   const fx = Math.sin(camState.yaw), fz = Math.cos(camState.yaw);
   const rx = -Math.cos(camState.yaw), rz = Math.sin(camState.yaw);
   let dx = fx * iz + rx * ix, dz = fz * iz + rz * ix;
   const dl = Math.hypot(dx, dz);
   if (dl > 0) { dx /= dl; dz /= dl; }
-  const running = hasInput && !player.aiming && (Input.isDown('ShiftLeft') || Input.isDown('ShiftRight'));
+  const running = hasInput && !player.aiming && (Input.isDown('ShiftLeft') || Input.isDown('ShiftRight') || padHeld('dash'));
   let maxSpeed = player.aiming ? CONFIG.player.aimWalk : running ? CONFIG.player.run : CONFIG.player.walk;
+  if (!running) maxSpeed *= lerp(0.35, 1, analog);
   if (player.hurtTimer > 0) maxSpeed *= 0.5;
   if (hpState(P.hp) === 'danger') maxSpeed *= 0.8;
   if (player.reloadTimer > 0) maxSpeed *= 0.7;
@@ -1402,7 +2165,10 @@ function applyPlayerTransform(dt) {
   const P = state.player, v = player.view, a = v.animator;
   v.wrapper.position.set(P.x, 0, P.z);
   v.wrapper.rotation.y = P.yaw;
-  const procWalk = !a.mixer || (a.set.roles.walk && a.set.roles.walk.procBob);
+  v.weapons.handgun.obj.visible = state.weapon !== 'magnum';
+  v.weapons.magnum.obj.visible = state.weapon === 'magnum';
+  if (v.rig && dt > 0) posePlayerRig(v.rig, dt);
+  const procWalk = !v.rig && (!a.mixer || (a.set.roles.walk && a.set.roles.walk.procBob));
   let bob = 0, tilt = 0;
   if (procWalk && player.speed > 0.1 && !player.dead) {
     bob = Math.abs(Math.sin(player.phase)) * 0.03 * Math.min(1, player.speed / 2);
@@ -1419,6 +2185,7 @@ function damagePlayer(amount) {
   P.hp = Math.max(0, P.hp - amount);
   player.hurtTimer = 0.35; player.invuln = 0.8;
   addShake(0.25);
+  rumble(0.9, 0.6, 280);
   showSplat();
   Audio.hurt();
   if (P.hp <= 0) killPlayer();
@@ -1587,10 +2354,6 @@ function makeZombieModel(tint) {
         }
       });
     }
-  } else {
-    let mat = null;
-    if (tint) { mat = fallbackMat.zombie.clone(); mat.color.multiply(tint); owned.push(mat); }
-    model = makeFallbackZombie(mat);
   }
   return { model, owned };
 }
@@ -1598,14 +2361,16 @@ function makeZombieModel(tint) {
 function createEnemyView(e) {
   const wrapper = new THREE.Group();
   const proc = new THREE.Group(); wrapper.add(proc);
-  const yawG = new THREE.Group(); yawG.rotation.y = CONFIG.zombie.modelYaw; proc.add(yawG);
-  const { model, owned } = makeZombieModel(null);
+  const yawG = new THREE.Group(); proc.add(yawG);
+  let model, owned = [], rig = null;
+  if (useProceduralZombie()) { rig = buildZombieRig(e.id, e.room); model = rig.root; }
+  else { ({ model, owned } = makeZombieModel(null)); yawG.rotation.y = CONFIG.zombie.modelYaw; }
   yawG.add(model);
   const animator = createAnimator(model, zombieAnimSet);
   scene.add(wrapper);
   const pool = new THREE.Mesh(GEO_EFFECT.pool, MAT_EFFECT.pool);
   pool.visible = false; pool.renderOrder = 1; scene.add(pool);
-  const view = { wrapper, proc, model, animator, owned, pool, shadowOn: true };
+  const view = { wrapper, proc, model, animator, owned, pool, shadowOn: true, rig };
   enemyViews.set(e.id, view);
   if (e.ai === 'dead' || e.ai === 'down') {
     if (hasAnim(animator, 'death')) { animPlay(animator, 'death', 0, { restart: true }); const act = animator.actions.death; act.time = act.getClip().duration; }
@@ -1613,6 +2378,7 @@ function createEnemyView(e) {
     if (e.ai === 'dead' && e.deadTimer >= 8) setEnemyShadow(view, false);
     if (e.ai === 'dead') { pool.visible = true; pool.position.set(e.x, 0.012, e.z); pool.scale.setScalar(1.2); }
   } else animPlay(animator, 'idle', 0);
+  if (rig) poseZombieRig(rig, e, 10, false);
   syncEnemyTransform(e, view);
   return view;
 }
@@ -1624,7 +2390,7 @@ function setEnemyShadow(view, on) {
 function syncEnemyTransform(e, view) {
   view.wrapper.position.set(e.x, e.y || 0, e.z);
   view.wrapper.rotation.y = e.yaw;
-  view.proc.rotation.x = -e.fallT * Math.PI / 2 + (e.lean || 0);
+  view.proc.rotation.x = -e.fallT * Math.PI / 2 + (view.rig ? 0 : (e.lean || 0));
   view.proc.position.y = e.bob || 0;
   view.proc.rotation.z = e.tilt || 0;
 }
@@ -1834,7 +2600,8 @@ function updateEnemy(e, dt) {
     }
   }
   // 手続き的な歩行の揺れ（クリップが無い時）
-  const procWalk = !a.mixer || (a.set.roles.walk && a.set.roles.walk.procBob);
+  if (view.rig) poseZombieRig(view.rig, e, dt, false);
+  const procWalk = !view.rig && (!a.mixer || (a.set.roles.walk && a.set.roles.walk.procBob));
   if (procWalk && e.speed > 0.05) { e.bob = Math.abs(Math.sin(e.phase * 1.6)) * 0.03; e.tilt = Math.sin(e.phase * 1.6) * 0.07; }
   else { e.bob = 0; e.tilt = damp(e.tilt, 0, 6, dt); }
   if (a.mixer && a.role === 'walk' && a.actions.walk) a.actions.walk.timeScale = clamp((e.speed || 0.6) / ANIM_BASE_SPEED.walk * 1.2, 0.3, 1.6);
@@ -1918,29 +2685,41 @@ function createBossView() {
   const wrapper = new THREE.Group();
   const proc = new THREE.Group(); wrapper.add(proc);
   const scaleG = new THREE.Group(); scaleG.scale.setScalar(CONFIG.boss.scale); proc.add(scaleG);
-  const yawG = new THREE.Group(); yawG.rotation.y = CONFIG.zombie.modelYaw; scaleG.add(yawG);
-  const { model, owned } = makeZombieModel(new THREE.Color(0.75, 0.22, 0.18));
+  const yawG = new THREE.Group(); scaleG.add(yawG);
+  let model, owned = [], rig = null, bodyMats;
+  const ownedGeo = [];
+  if (useProceduralZombie()) {
+    rig = buildBossRig(); model = rig.root;
+    CHAR_MAT.boss.emissive.setRGB(0, 0, 0);
+    bodyMats = [CHAR_MAT.boss];
+  } else {
+    ({ model, owned } = makeZombieModel(new THREE.Color(0.75, 0.22, 0.18)));
+    yawG.rotation.y = CONFIG.zombie.modelYaw;
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff2000, emissive: 0xff0000, emissiveIntensity: 0.2 });
+    owned.push(eyeMat);
+    const eyeGeo = new THREE.SphereGeometry(0.03, 8, 6);
+    ownedGeo.push(eyeGeo);
+    for (const sx of [-0.06, 0.06]) { const m = new THREE.Mesh(eyeGeo, eyeMat); m.position.set(sx, 1.6, 0.14); scaleG.add(m); }
+    bodyMats = owned.filter((m) => m !== eyeMat && 'emissive' in m);
+  }
   yawG.add(model);
-  const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff2000, emissive: 0xff0000, emissiveIntensity: 0.2 });
-  owned.push(eyeMat);
-  const eyeGeo = new THREE.SphereGeometry(0.03, 8, 6);
-  for (const sx of [-0.06, 0.06]) { const m = new THREE.Mesh(eyeGeo, eyeMat); m.position.set(sx, 1.6, 0.14); scaleG.add(m); }
   const animator = createAnimator(model, zombieAnimSet);
   animPlay(animator, 'idle', 0);
   scene.add(wrapper);
-  const bodyMats = owned.filter((m) => m !== eyeMat && 'emissive' in m);
-  bossView = { wrapper, proc, model, animator, owned, ownedGeo: [eyeGeo], bodyMats, shadowOn: true };
+  bossView = { wrapper, proc, model, animator, owned, ownedGeo, bodyMats, shadowOn: true, rig };
   wrapper.visible = state.boss.ai !== 'dormant';
   if (state.boss.ai === 'dead') {
     if (hasAnim(animator, 'death')) { animPlay(animator, 'death', 0, { restart: true }); animator.actions.death.time = animator.actions.death.getClip().duration; }
     else state.boss.fallT = 1;
   }
+  if (rig) poseZombieRig(rig, state.boss, 10, true);
   syncEnemyTransform(state.boss, bossView);
 }
 function startBossFight() {
   const b = state.boss;
   state.flags.bossStarted = true;
   b.ai = 'rise'; b.timer = 1.5; b.y = -3.5;
+  rumble(1, 1, 1200);
   bossView.wrapper.visible = true;
   Audio.cluster(); Audio.roar();
   addShake(0.6);
@@ -2028,7 +2807,7 @@ function updateBoss(dt) {
         break;
       }
       if (moved < step * 0.5) {
-        b.ai = 'stun'; b.timer = 1.5; setBossGlow(0); addShake(0.6); Audio.bossHit(); Audio.roar();
+        b.ai = 'stun'; b.timer = 1.5; setBossGlow(0); addShake(0.6); Audio.bossHit(); Audio.roar(); rumble(1, 0.8, 400);
         showMessage('壁に激突した！今だ！');
         animPlay(a, hasAnim(a, 'hit') ? 'hit' : 'idle', 0.1, { restart: true });
       } else if (b.timer <= 0) { b.ai = 'recover'; b.timer = 0.6; setBossGlow(0); }
@@ -2048,7 +2827,8 @@ function updateBoss(dt) {
     }
     case 'dead': break;
   }
-  const procWalk = !a.mixer || (a.set.roles.walk && a.set.roles.walk.procBob);
+  if (view.rig) poseZombieRig(view.rig, b, dt, true);
+  const procWalk = !view.rig && (!a.mixer || (a.set.roles.walk && a.set.roles.walk.procBob));
   if (procWalk && b.speed > 0.05) { b.bob = Math.abs(Math.sin(b.phase * 1.4)) * 0.06; b.tilt = Math.sin(b.phase * 1.4) * 0.06; }
   else { b.bob = 0; b.tilt = damp(b.tilt, 0, 6, dt); }
   syncEnemyTransform(b, view);
@@ -2191,7 +2971,7 @@ function clearEffects() {
 }
 function ejectShell() {
   const s = shells[shellIndex]; shellIndex = (shellIndex + 1) % MAX_SHELLS;
-  player.view.muzzle.getWorldPosition(tmpV1);
+  currentMuzzle().getWorldPosition(tmpV1);
   const P = state.player;
   const rx = -Math.cos(P.yaw), rz = Math.sin(P.yaw);
   s.mesh.position.copy(tmpV1).addScaledVector(tmpV2.set(Math.sin(P.yaw), 0, Math.cos(P.yaw)), -0.12);
@@ -2301,7 +3081,7 @@ function tryFire() {
   const w = state.weapon, cfg = CONFIG[w];
   if (state.ammo[w] <= 0) {
     Audio.dryFire(); player.fireCd = 0.25;
-    showMessage(countAmmo(w) > 0 ? 'R でリロード' : '弾が尽きた……');
+    showMessage(countAmmo(w) > 0 ? `${btnLabel('reload')} でリロード` : '弾が尽きた……');
     return;
   }
   state.ammo[w]--;
@@ -2310,7 +3090,7 @@ function tryFire() {
   player.mode = '';
   player.recoil = w === 'magnum' ? 0.25 : 0.1;
   reticleKick = w === 'magnum' ? 1 : 0.5;
-  if (w === 'magnum') Audio.magnum(); else Audio.handgun();
+  if (w === 'magnum') { Audio.magnum(); rumble(0.8, 0.6, 160); } else { Audio.handgun(); rumble(0.15, 0.45, 70); }
   addShake(w === 'magnum' ? 0.15 : 0.05);
   const room = currentRoom();
   cameraShotRay(cfg.spread);
@@ -2324,7 +3104,7 @@ function tryFire() {
   else if (wallHit) aimPoint.copy(wallHit.point);
   else aimPoint.copy(shotOrigin).addScaledVector(shotDir, 60);
   // ② 銃口→狙点の線分上に壁があればそこが着弾点
-  player.view.muzzle.getWorldPosition(muzzlePos);
+  currentMuzzle().getWorldPosition(muzzlePos);
   {
     // 銃口が胸の前から大きく外れている（構えアニメが無く腕が下がっている等）場合は胸の前の仮想銃口を使う
     const P = state.player;
@@ -2468,7 +3248,7 @@ function pickupItem(it) {
     if (freeSlots() < 1 + (needAmmoSlot ? 1 : 0)) { showMessage('これ以上持てない。（マグナムと弾で2枠必要）'); return; }
     addToInventory('magnum'); addToInventory('mgAmmo', CONFIG.magnum.startReserve);
     state.ammo.magnum = CONFIG.magnum.mag;
-    showMessage('マグナムを手に入れた。（2 キーで持ち替え）');
+    showMessage(`マグナムを手に入れた。（${Pad.lastDevice === 'pad' ? btnLabel('weapon') + ' ボタン' : '2 キー'}で持ち替え）`);
   } else if (type === 'hgAmmo') {
     if (!addToInventory('hgAmmo', 15)) { showMessage('これ以上持てない。'); return; }
     showMessage('ハンドガンの弾 ×15 を手に入れた。');
@@ -2580,10 +3360,11 @@ function findInteractable() {
 }
 function interactLabel(ia) {
   if (!ia) return '';
-  if (ia.kind === 'item') return `[E] ${ITEM_DEFS[ia.item.type === 'hgAmmo' ? 'hgAmmo' : ia.item.type].name}を拾う`;
-  if (ia.kind === 'door') return ia.door.id === 'X' ? '[E] 非常口' : '[E] 扉を開ける';
-  if (ia.kind === 'typewriter') return '[E] タイプライター';
-  return '[E] 調べる';
+  const k = `[${btnLabel('interact')}]`;
+  if (ia.kind === 'item') return `${k} ${ITEM_DEFS[ia.item.type].name}を拾う`;
+  if (ia.kind === 'door') return ia.door.id === 'X' ? `${k} 非常口` : `${k} 扉を開ける`;
+  if (ia.kind === 'typewriter') return `${k} タイプライター`;
+  return `${k} 調べる`;
 }
 function doInteract() {
   const ia = findInteractable();
@@ -2623,6 +3404,7 @@ function triggerJumpScare() {
   game.closetAnim = 0.0001;
   Audio.cluster();
   addShake(0.4);
+  rumble(1, 1, 500);
   flashFlicker = 0.3;
   playMoanAt(e.x, e.z);
 }
@@ -2669,6 +3451,7 @@ function applyFlagsToWorld() {
 function openDoc(title, body) {
   ui.docOpen = true;
   $('docTitle').textContent = title; $('docBody').textContent = body;
+  $('docClose').textContent = `${btnLabel('interact')} で閉じる`;
   $('docPanel').classList.remove('hidden');
   Input.rmb = false;
 }
@@ -2729,6 +3512,9 @@ function openInventory() {
   ui.inventoryOpen = true; ui.invSel = clamp(ui.invSel, 0, INV_SIZE - 1);
   Input.rmb = false;
   renderInventory();
+  $('invHelp').textContent = Pad.lastDevice === 'pad'
+    ? `十字キー/スティック：選択　${btnLabel('interact')}：使う・装備　${btnLabel('dash')}：捨てる　${btnLabel('inventory')}：閉じる`
+    : 'WASD / 矢印：選択　E：使う・装備　Q：捨てる　Tab：閉じる';
   $('inventory').classList.remove('hidden');
 }
 function closeInventory() {
@@ -2795,7 +3581,11 @@ function discardInventoryItem(i) {
 }
 
 // ---- マップ ----
-function openMap() { ui.mapOpen = true; Input.rmb = false; $('mapPanel').classList.remove('hidden'); drawMap(); }
+function openMap() {
+  ui.mapOpen = true; Input.rmb = false;
+  $('mapHelp').textContent = `赤：施錠された扉　緑：開いている扉　点滅：現在地　${Pad.lastDevice === 'pad' ? btnLabel('map') : 'M'}：閉じる`;
+  $('mapPanel').classList.remove('hidden'); drawMap();
+}
 function closeMap() { ui.mapOpen = false; $('mapPanel').classList.add('hidden'); resumeIfUnlocked(); }
 function drawMap() {
   const cv = $('mapCanvas'), g = cv.getContext('2d');
@@ -2895,7 +3685,8 @@ function updateHUD(dt, t) {
   ret.classList.toggle('hidden', !showRet);
   if (showRet) {
     ret.style.transform = `scale(${1 + reticleKick * 0.8})`;
-    ret.classList.toggle('enemy', reticleOnEnemy());
+    ui.retOnEnemy = reticleOnEnemy();
+    ret.classList.toggle('enemy', ui.retOnEnemy);
   }
   if (!isPaused() && !player.dead) {
     const ia = findInteractable();
@@ -2922,6 +3713,7 @@ function updateDebug(dt) {
     `--- player anim ---`, ...ANIM_ROLES.map((r) => `${r.padEnd(7)}: ${player.view.animator.set.table[r]}`),
     `--- zombie anim ---`, ...ANIM_ROLES.map((r) => `${r.padEnd(7)}: ${zombieAnimSet.table[r]}`),
     `gun: ${player.view.gunInfo}`,
+    `pad: ${Pad.index !== null ? Pad.id + ' / ' + (Pad.standard ? 'standard' : 'generic') + ' / buttons ' + Pad.down.map((d, i) => (d ? i : '')).filter((x) => x !== '').join(',') + ' / move ' + Pad.move.x.toFixed(2) + ',' + Pad.move.y.toFixed(2) + ' / look ' + Pad.look.x.toFixed(2) + ',' + Pad.look.y.toFixed(2) : '未接続'}`,
   ];
   for (const e of state.enemies) if (e.room === state.room) lines.push(`${e.id}: ${e.ai} hp${e.hp} ${e.willRevive ? '(revive ' + e.reviveTimer.toFixed(1) + ')' : ''}`);
   if (state.room === 'core') lines.push(`boss: ${state.boss.ai} hp${state.boss.hp.toFixed(0)}`);
@@ -2967,6 +3759,7 @@ function updateGunInfo() {
 function hideScreens() { for (const id of ['title', 'pause', 'gameover', 'ending', 'loading']) $(id).classList.add('hidden'); }
 function showGameOver() {
   game.gameOver = true;
+  setGameOverFocus(0);
   $('gameover').classList.remove('hidden');
   $('btnRetry').textContent = lastSave ? 'リトライ（最後のセーブから）' : 'リトライ（最初から）';
   if (document.pointerLockElement) document.exitPointerLock();
@@ -3089,6 +3882,7 @@ function resetGame(src) {
   animPlay(a, 'idle', 0);
   player.mode = 'idle';
   applyPlayerTransform(0);
+  if (player.view.rig) posePlayerRig(player.view.rig, 10);
   camState.yaw = state.player.yaw; camState.pitch = -0.12; camState.snap = true; camState.shake = 0;
   camera.fov = CONFIG.camera.fov; camera.updateProjectionMatrix();
   ui.inventoryOpen = ui.mapOpen = ui.docOpen = false;
@@ -3145,6 +3939,8 @@ function retryGame() {
 onKeyAction = (e) => {
   const code = e.code;
   if (!state || !player.view) return;
+  if (Pad.wizard) { if (code === 'Escape' || code === 'Enter') padWizardNext(true); return; }
+  if (!$('padPanel').classList.contains('hidden')) { if (code === 'Escape') closePadPanel(); return; }
   if (code === 'F1') { toggleDebug(); return; }
   if (code === 'F2') { rotateGun(e.shiftKey ? 'x' : 'y'); return; }
   if (code === 'F3') { game.god = !game.god; showMessage(game.god ? '無敵モード ON（デバッグ）' : '無敵モード OFF'); return; }
@@ -3173,13 +3969,88 @@ onMouseAction = (e) => {
 document.addEventListener('pointerlockchange', () => { if (Input.locked) game.everLocked = true; });
 $('title').addEventListener('click', () => startNewGame());
 $('btnContinue').addEventListener('click', (e) => { e.stopPropagation(); continueGame(); });
-$('pause').addEventListener('click', () => {
+function resumeFromPause(lock) {
   Audio.init();
   game.menuPause = false;
   $('pause').classList.add('hidden');
   clock.getDelta();
-  requestLock();
+  if (lock) requestLock();
+}
+function pauseGame() {
+  game.menuPause = true;
+  Input.rmb = false;
+  $('pause').classList.remove('hidden');
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+$('pause').addEventListener('click', () => resumeFromPause(true));
+$('btnPad').addEventListener('click', (e) => { e.stopPropagation(); openPadPanel(); });
+$('btnPad2').addEventListener('click', (e) => { e.stopPropagation(); openPadPanel(); });
+$('padWizard').addEventListener('click', () => startPadWizard());
+$('padClose').addEventListener('click', () => closePadPanel());
+$('padReset').addEventListener('click', () => {
+  if (Pad.index === null) return;
+  Pad.cfg = padDefaults(currentGamepad()); Pad.wizard = null; padSave();
+  $('padPrompt').textContent = '初期設定に戻しました。'; renderPadPanel();
 });
+$('padInvert').addEventListener('change', (e) => { if (!Pad.cfg) return; Pad.cfg.invertY = e.target.checked; if (Pad.wizard) Pad.wizard.cfg.invertY = e.target.checked; padSave(); });
+$('padPanel').addEventListener('mousedown', (e) => e.stopPropagation());
+$('padPanel').addEventListener('click', (e) => e.stopPropagation());
+
+// ---- ゲームパッドの操作をゲームへ反映（毎フレーム） ----
+function setGameOverFocus(i) {
+  ui.goSel = i;
+  $('btnRetry').classList.toggle('focus', i === 0);
+  $('btnToTitle').classList.toggle('focus', i === 1);
+}
+function handlePadInput(dt) {
+  if (Pad.index === null) return;
+  if (Pad.wizard) { padWizardUpdate(dt); return; }
+  if (!$('padPanel').classList.contains('hidden')) {
+    if (padPressed('pause')) closePadPanel(); else if (padPressed('interact')) startPadWizard();
+    return;
+  }
+  if (!$('loading').classList.contains('hidden')) return;
+  const start = padPressed('pause') || padPressed('interact');
+  if (!$('title').classList.contains('hidden')) { if (start || padPressed('fire')) startNewGame(); return; }
+  if (game.ending) { if (start && !$('ending').classList.contains('hidden')) startNewGame(); return; }
+  if (game.gameOver) {
+    if (ui.goSel === undefined) setGameOverFocus(0);
+    if (Pad.navEvent) setGameOverFocus(ui.goSel ? 0 : 1);
+    if (start) { const sel = ui.goSel; setGameOverFocus(0); if (sel) showTitle(); else retryGame(); }
+    return;
+  }
+  if (game.menuPause) { if (start) resumeFromPause(false); return; }
+  if (!game.running || game.transition) return;
+  if (ui.docOpen) { if (start || padPressed('fire') || padPressed('inventory')) closeDoc(); return; }
+  if (ui.inventoryOpen) {
+    const dirKey = { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown' };
+    if (Pad.navEvent) handleInventoryKey(dirKey[Pad.navEvent]);
+    if (padPressed('interact')) handleInventoryKey('KeyE');
+    else if (padPressed('dash')) handleInventoryKey('KeyQ');
+    else if ((padPressed('inventory') || padPressed('pause') || padPressed('fire')) && ui.inventoryOpen) closeInventory();
+    return;
+  }
+  if (ui.mapOpen) { if (padPressed('map') || start || padPressed('inventory')) closeMap(); return; }
+  if (padPressed('pause')) { pauseGame(); return; }
+  if (player.dead) return;
+  if (padPressed('interact')) doInteract();
+  if (padPressed('reload')) tryReload();
+  if (padPressed('inventory')) openInventory();
+  else if (padPressed('map')) openMap();
+  if (padPressed('weapon')) {
+    if (state.weapon === 'handgun' && hasItem('magnum')) switchWeapon('magnum');
+    else if (state.weapon === 'magnum') switchWeapon('handgun');
+  }
+  if (padPressed('fire')) { player.aiming = Input.rmb || padHeld('aim'); tryFire(); }
+}
+function updatePadLook(dt) {
+  if (Pad.index === null || (!Pad.look.x && !Pad.look.y)) return;
+  const curve = (v) => Math.sign(v) * v * v;
+  let k = player.aiming ? 0.55 : 1;
+  if (player.aiming && ui.retOnEnemy) k *= 0.5;   // 敵に照準が重なると少し減速（エイムアシスト）
+  camState.yaw -= curve(Pad.look.x) * CONFIG.gamepad.lookSpeed * k * dt;
+  camState.pitch = clamp(camState.pitch - curve(Pad.look.y) * CONFIG.gamepad.lookSpeedY * k * dt, CONFIG.camera.pitchMin, CONFIG.camera.pitchMax);
+}
 $('btnRetry').addEventListener('click', () => retryGame());
 $('btnToTitle').addEventListener('click', () => showTitle());
 $('btnAgain').addEventListener('click', () => startNewGame());
@@ -3191,6 +4062,7 @@ const clock = new THREE.Clock();
 let elapsed = 0;
 function update(dt) {
   state.stats.time += dt;
+  updatePadLook(dt);
   updateScheduled(dt);
   updatePlayer(dt);
   for (const e of state.enemies) if (e.room === state.room) updateEnemy(e, dt);
@@ -3221,7 +4093,10 @@ function loop() {
   const realDt = dt;
   if (hitStopTimer > 0) { hitStopTimer -= dt; dt = 0; }
   elapsed += realDt;
+  pollPad(realDt);
+  if (state && player.view) handlePadInput(realDt);
   if (game.running && !isPaused()) update(dt);
+  else if (!game.running && player.view && player.view.rig && state) posePlayerRig(player.view.rig, realDt);
   updateTransition(realDt);
   if (game.gunInfoTimer > 0) { game.gunInfoTimer -= realDt; if (game.gunInfoTimer <= 0) updateGunInfo(); }
   if (state) {
@@ -3255,6 +4130,7 @@ async function init() {
   hideScreens();
   $('title').classList.remove('hidden');
   $('btnContinue').classList.toggle('hidden', !loadStoredSave());
+  padStatusUpdate();
   clock.getDelta();
   loop();
 }
@@ -3262,6 +4138,7 @@ async function init() {
 window.__game = {
   get state() { return state; }, get lastSave() { return lastSave; }, get bossView() { return bossView; }, enemyViews, itemViews, camState, game, player, rooms, ui, Input, CONFIG,
   resetGame, createInitialState, startNewGame, retryGame, enterRoom, saveGame, update, updateCamera, updateTransition, doInteract, findInteractable,
+  Pad, pollPad, handlePadInput, posePlayerRig,
   tryFire, tryReload, damagePlayer, switchWeapon, openInventory, closeInventory, handleInventoryKey, toggleDebug, startBossFight,
 };
 init().catch((err) => {
