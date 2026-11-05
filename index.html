@@ -2,10 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#050506">
 <title>腐蝕の館 - THE ROTTING MANOR</title>
 <style>
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #050506; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #050506;
+               touch-action: none; overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   body { font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif; color: #d8d0c0; user-select: none; -webkit-user-select: none; }
   canvas#gl { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
   .overlay { position: fixed; inset: 0; pointer-events: none; }
@@ -89,6 +94,57 @@
   #padHelp { font-size: 12px; color: #8a8070; margin-top: 6px; }
   #padStatus { margin-top: 10px; font-size: 12px; color: #8a9a80; }
   button.ui.focus { background: rgba(138,0,0,0.6); box-shadow: 0 0 10px rgba(255,0,0,0.5); }
+  /* ---- タッチ操作 ---- */
+  #touchUI { position: fixed; inset: 0; z-index: 12; touch-action: none; }
+  .tbtn { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-align: center;
+          background: rgba(20,10,10,0.38); border: 2px solid rgba(216,208,192,0.45); color: #d8d0c0; font-size: 13px;
+          text-shadow: 0 0 4px #000; box-sizing: border-box; line-height: 1.1; white-space: pre-line; }
+  .tbtn.down { background: rgba(138,0,0,0.65); }
+  .tbtn.on { border-color: #d02020; background: rgba(120,0,0,0.5); }
+  .tbtn.off { opacity: 0.55; }
+  .tbtn.ready { border-color: #e0c060; box-shadow: 0 0 12px rgba(224,192,96,0.6); }
+  #tbFire { width: 88px; height: 88px; right: calc(22px + env(safe-area-inset-right)); bottom: calc(60px + env(safe-area-inset-bottom)); font-size: 16px; }
+  #tbAim { width: 66px; height: 66px; right: calc(124px + env(safe-area-inset-right)); bottom: calc(26px + env(safe-area-inset-bottom)); }
+  #tbReload { width: 56px; height: 56px; right: calc(132px + env(safe-area-inset-right)); bottom: calc(112px + env(safe-area-inset-bottom)); font-size: 12px; }
+  #tbAct { width: 64px; height: 64px; right: calc(34px + env(safe-area-inset-right)); bottom: calc(166px + env(safe-area-inset-bottom)); }
+  #tbWeapon { width: 52px; height: 52px; right: calc(206px + env(safe-area-inset-right)); bottom: calc(30px + env(safe-area-inset-bottom)); font-size: 12px; }
+  #tbDash { width: 56px; height: 56px; left: calc(22px + env(safe-area-inset-left)); bottom: calc(196px + env(safe-area-inset-bottom)); }
+  .tbtn.small { width: 48px; height: 48px; font-size: 11px; border-radius: 12px; }
+  #tbPause { top: calc(10px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); font-size: 16px; }
+  #tbMap { top: calc(10px + env(safe-area-inset-top)); right: calc(68px + env(safe-area-inset-right)); }
+  #tbInv { top: calc(10px + env(safe-area-inset-top)); right: calc(124px + env(safe-area-inset-right)); }
+  #joyBase { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(216,208,192,0.35);
+             background: rgba(0,0,0,0.25); opacity: 0.45; pointer-events: none; }
+  #joyBase.on { opacity: 1; }
+  #joyKnob { position: absolute; left: 32px; top: 32px; width: 52px; height: 52px; border-radius: 50%; background: rgba(216,208,192,0.45); }
+  #rotateHint { position: fixed; left: 0; right: 0; top: calc(64px + env(safe-area-inset-top)); z-index: 13; text-align: center; font-size: 13px; pointer-events: none; }
+  #rotateHint span { background: rgba(0,0,0,0.7); padding: 6px 14px; border: 1px solid rgba(138,0,0,0.6); }
+  body.touch #hud { right: auto; left: calc(14px + env(safe-area-inset-left)); bottom: auto; top: calc(8px + env(safe-area-inset-top)); text-align: left; }
+  body.touch #ecg { margin-left: 0; width: 160px; height: 41px; }
+  body.touch #message { bottom: auto; top: 18%; }
+  body.touch #message span { font-size: 15px; padding: 8px 20px; }
+  body.touch #hint { top: 54%; }
+  body.touch .kbOnly { display: none !important; }
+  body:not(.touch) .touchOnly { display: none !important; }
+  .panelBtns { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .panelBtns button.ui { font-size: 15px; padding: 8px 22px; margin: 0; }
+  .screen { overflow-y: auto; box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  #inventory .box, #padPanel .box { max-width: 94vw; max-height: 94vh; overflow: auto; box-sizing: border-box; }
+  #mapPanel .box { max-width: 96vw; max-height: 94vh; overflow: auto; box-sizing: border-box; }
+  #mapCanvas { max-width: 90vw; max-height: 66vh; width: auto; height: auto; }
+  #docPanel .paper { max-height: 88vh; overflow: auto; box-sizing: border-box; }
+  @media (max-height: 560px), (max-width: 700px) {
+    #title h1 { font-size: 42px; } #title h2 { font-size: 13px; margin: 4px 0 16px; letter-spacing: 0.4em; }
+    .controls { margin-top: 12px; font-size: 11px; line-height: 1.6; } .warn { font-size: 10px; margin-top: 8px; }
+    .slot { height: 62px; } .slot img { width: 42px; height: 42px; }
+    #inventory .box { padding: 12px 16px; } #invGrid { gap: 6px; } #invDesc { min-height: 36px; font-size: 13px; margin-top: 8px; padding-top: 6px; }
+    #inventory h3, #mapPanel h3 { margin-bottom: 6px; }
+    #docPanel .paper { padding: 18px 22px; font-size: 14px; line-height: 1.75; }
+    #gameover h1, #ending h1 { font-size: 40px; margin-bottom: 18px; } #pause h1 { font-size: 28px; }
+    #ending .stats { font-size: 15px; margin-bottom: 16px; }
+    #mapCanvas { max-height: 50vh; } #mapPanel .box { padding: 10px 14px; } #mapHelp { margin-top: 4px; }
+    .panelBtns { margin-top: 6px; } .panelBtns button.ui { padding: 6px 18px; font-size: 14px; }
+  }
   .dlabel { position: fixed; z-index: 49; font: 11px monospace; color: #ff8; background: rgba(0,0,0,0.6); padding: 1px 4px; transform: translate(-50%, -100%); pointer-events: none; }
 </style>
 <script type="importmap">
@@ -122,14 +178,29 @@
   <div id="invGrid"></div>
   <div id="invDesc"></div>
   <div id="invHelp">WASD / 矢印：選択　E：使う・装備　Q：捨てる　Tab：閉じる</div>
+  <div class="panelBtns"><button class="ui" id="invUseBtn">使う・装備</button><button class="ui" id="invDropBtn">捨てる</button><button class="ui" id="invCloseBtn">閉じる</button></div>
 </div></div>
 <div id="mapPanel" class="panel hidden"><div class="box">
   <h3>MAP</h3>
   <canvas id="mapCanvas" width="880" height="360"></canvas>
   <div id="mapHelp">赤：施錠された扉　緑：開いている扉　点滅：現在地　M：閉じる</div>
+  <div class="panelBtns"><button class="ui" id="mapCloseBtn">閉じる</button></div>
 </div></div>
 <div id="docPanel" class="panel hidden"><div class="paper"><h3 id="docTitle"></h3><div id="docBody"></div><div class="close" id="docClose">E で閉じる</div></div></div>
 
+<div id="touchUI" class="hidden">
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <div class="tbtn" id="tbFire" data-act="fire">射撃</div>
+  <div class="tbtn" id="tbAim" data-act="aim">構え</div>
+  <div class="tbtn" id="tbReload" data-act="reload">リロード</div>
+  <div class="tbtn" id="tbAct" data-act="interact">調べる</div>
+  <div class="tbtn" id="tbWeapon" data-act="weapon">武器</div>
+  <div class="tbtn" id="tbDash" data-act="dash">走る</div>
+  <div class="tbtn small" id="tbInv" data-act="inventory">アイテム</div>
+  <div class="tbtn small" id="tbMap" data-act="map">マップ</div>
+  <div class="tbtn small" id="tbPause" data-act="pause">Ⅱ</div>
+</div>
+<div id="rotateHint" class="hidden"><span>端末を横向きにすると遊びやすくなります</span></div>
 <div id="fade" class="overlay"></div>
 
 <div id="loading" class="screen">
@@ -141,12 +212,18 @@
 <div id="title" class="screen hidden">
   <h1>腐蝕の館</h1>
   <h2>THE ROTTING MANOR</h2>
-  <div class="blink">クリックして開始</div>
-  <div style="font-size:13px;margin-top:8px;color:#9a8f80">（ゲームパッドは START か ② ボタンで開始）</div>
+  <div class="blink"><span class="kbOnly">クリックして開始</span><span class="touchOnly">タップして開始</span></div>
+  <div class="kbOnly" style="font-size:13px;margin-top:8px;color:#9a8f80">（ゲームパッドは START か ② ボタンで開始）</div>
   <button id="btnContinue" class="ui hidden" style="margin-top:22px">つづきから（セーブデータ）</button>
   <button id="btnPad" class="ui" style="font-size:14px;padding:6px 20px;position:absolute;right:20px;bottom:44px">ゲームパッド設定</button>
-  <div id="padStatus" style="position:absolute;right:20px;bottom:16px;max-width:60vw;text-align:right">ゲームパッド：未接続（パッドのボタンを押すと認識されます）</div>
-  <div class="controls">
+  <div id="padStatus" class="kbOnly" style="position:absolute;right:20px;bottom:16px;max-width:60vw;text-align:right">ゲームパッド：未接続（パッドのボタンを押すと認識されます）</div>
+  <div class="controls touchOnly">
+    左側をドラッグ：移動（スティック）　右側をドラッグ：視点<br>
+    ［構え］で銃を構える（もう一度で解除）　構え中に［射撃］　［調べる］：拾う・扉・調べる<br>
+    ［走る］：ダッシュ切替　［リロード］　［武器］：持ち替え　右上：アイテム／マップ／ポーズ<br>
+    <span style="color:#b0a080">横向き・全画面での プレイ推奨。音が出ない場合は画面をもう一度タップ。</span>
+  </div>
+  <div class="controls kbOnly">
     WASD：移動　Shift：ダッシュ　右クリック（押下中）：構える　構え中に左クリック：射撃<br>
     R：リロード　E：調べる／拾う／扉を開ける　Tab：アイテム　M：マップ　1・2：武器切替<br>
     F1：デバッグ表示　F2 / Shift+F2：銃の向き調整　F3：無敵（デバッグ）<br>
@@ -157,7 +234,7 @@
 </div>
 <div id="pause" class="screen hidden">
   <h1>PAUSE</h1>
-  <div class="blink">クリック または START で再開</div>
+  <div class="blink"><span class="kbOnly">クリック または START で再開</span><span class="touchOnly">タップで再開</span></div>
   <button id="btnPad2" class="ui" style="font-size:14px;padding:6px 20px;margin-top:24px">ゲームパッド設定</button>
 </div>
 <div id="gameover" class="screen hidden">
@@ -218,6 +295,10 @@ const CONFIG = {
   characters: 'auto',
   // ゲームパッド（BSGP1204P などの DirectInput パッドにも対応。割り当てはタイトル/ポーズの「ゲームパッド設定」で変更可）
   gamepad: { deadzone: 0.2, lookSpeed: 2.8, lookSpeedY: 1.9, rumble: true },
+  // スマホ・タブレット（タッチ操作）
+  touch: { lookSensitivity: 0.0055, aimAssist: true },
+  // タッチ端末では描画負荷を下げる（ピクセル比の上限、部屋ライトの影を切る）
+  mobile: { pixelRatio: 1.25, roomShadows: false },
   debug: false,
 };
 
@@ -316,6 +397,8 @@ const tmpV1 = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpV3 = new THRE
 const tmpQ = new THREE.Quaternion(), tmpM = new THREE.Matrix4(), tmpS = new THREE.Vector3(), tmpColor = new THREE.Color();
 const UP = new THREE.Vector3(0, 1, 0), ZAXIS = new THREE.Vector3(0, 0, 1);
 const $ = (id) => document.getElementById(id);
+const IS_TOUCH_DEVICE = !!((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || (('ontouchstart' in window) && navigator.maxTouchPoints > 0));
+const LOW_POWER = IS_TOUCH_DEVICE;
 
 // =====================================================================
 // 3. オーディオ（WebAudio合成のみ）
@@ -472,6 +555,7 @@ window.addEventListener('keyup', (e) => { Input.keys.delete(e.code); });
 window.addEventListener('blur', () => Input.clear());
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('mousedown', (e) => {
+  if (performance.now() - Touch.lastTime < 1200) return;   // タップ由来の擬似マウスイベントは無視
   Pad.lastDevice = 'kb';
   if (Audio.ctx && Audio.ctx.state === 'suspended') Audio.ctx.resume();
   if (e.button === 2) Input.rmb = true;
@@ -493,6 +577,7 @@ document.addEventListener('pointerlockchange', () => {
   }
 });
 function requestLock() {
+  if (Pad.lastDevice === 'touch' || !renderer.domElement.requestPointerLock) return;
   try {
     const p = renderer.domElement.requestPointerLock();
     if (p && typeof p.catch === 'function') p.catch(() => {});
@@ -519,7 +604,7 @@ const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', 
 const KEY_LABEL = { interact: 'E', fire: '左クリック', aim: '右クリック', dash: 'Shift', reload: 'R', inventory: 'Tab', map: 'M', weapon: '1/2', pause: 'Esc' };
 const Pad = {
   index: null, id: '', standard: false, hat: false, dpadButtons: false, cfg: null, down: [], prev: [], base: null,
-  move: { x: 0, y: 0 }, look: { x: 0, y: 0 }, nav: { dir: null, t: 0 }, navEvent: null, lastDevice: 'kb', wizard: null,
+  move: { x: 0, y: 0 }, look: { x: 0, y: 0 }, nav: { dir: null, t: 0 }, navEvent: null, lastDevice: IS_TOUCH_DEVICE ? 'touch' : 'kb', wizard: null,
 };
 function padLoadAll() { try { return JSON.parse(localStorage.getItem(PAD_STORE) || '{}') || {}; } catch (e) { return {}; } }
 function padDefaults(gp) {
@@ -596,6 +681,7 @@ function padHeld(a) { return !!(Pad.index !== null && Pad.cfg && Pad.cfg.buttons
 function padPressed(a) { return !!(Pad.index !== null && Pad.cfg && Pad.cfg.buttons[a] && Pad.cfg.buttons[a].some((i) => Pad.down[i] && !Pad.prev[i])); }
 function padButtonName(i) { return Pad.standard ? (STD_BTN_NAMES[i] || `B${i}`) : (CIRCLED[i] || `ボタン${i + 1}`); }
 function btnLabel(a) {
+  if (Pad.lastDevice === 'touch') return TOUCH_LABEL[a];
   if (Pad.lastDevice === 'pad' && Pad.index !== null && Pad.cfg) {
     const list = Pad.cfg.buttons[a] || [];
     return list.length ? padButtonName(list[0]) : '—';
@@ -689,11 +775,110 @@ function padWizardUpdate(dt) {
   }
 }
 
+// ---------------- タッチ操作（スマホ・タブレット） ----------------
+// 左側：フローティング・バーチャルスティック（移動）／右側：ドラッグで視点／ボタン：各アクション
+const TOUCH_LABEL = { interact: '調べる', fire: '射撃', aim: '構え', dash: '走る', reload: 'リロード', inventory: 'アイテム', map: 'マップ', weapon: '武器', pause: 'Ⅱ' };
+const Touch = { move: { x: 0, y: 0 }, lookDX: 0, lookDY: 0, aim: false, dash: false, queue: [], touches: new Map(), lastTime: -1e9, visible: false };
+function touchJoyRadius() { return Math.max(44, Math.min(66, Math.min(window.innerWidth, window.innerHeight) * 0.13)); }
+function placeJoyIdle() {
+  const jb = $('joyBase');
+  jb.style.left = `${Math.max(90, window.innerWidth * 0.12)}px`;
+  jb.style.top = `${window.innerHeight - clamp(window.innerHeight * 0.2, 96, 140)}px`;
+}
+function resetTouchState() {
+  for (const s of Touch.touches.values()) if (s.btn) s.btn.classList.remove('down');
+  Touch.touches.clear();
+  Touch.move.x = Touch.move.y = 0; Touch.lookDX = Touch.lookDY = 0; Touch.dash = false;
+  $('joyBase').classList.remove('on'); $('joyKnob').style.transform = '';
+  placeJoyIdle();
+}
+function touchButton(act) {
+  if (act === 'aim') { Touch.aim = !Touch.aim; return; }
+  if (act === 'dash') { Touch.dash = !Touch.dash; return; }
+  // 構えていない時の［射撃］はまず銃を構える（構えていない射撃は不可のルールを維持）
+  if (act === 'fire' && !Touch.aim && !Input.rmb && !padHeld('aim')) { Touch.aim = true; return; }
+  Touch.queue.push(act);
+}
+function initTouchUI() {
+  const root = $('touchUI'), jb = $('joyBase'), jk = $('joyKnob');
+  placeJoyIdle();
+  window.addEventListener('touchstart', () => {
+    Touch.lastTime = performance.now();
+    Pad.lastDevice = 'touch';
+    if (Audio.ctx && Audio.ctx.state === 'suspended') Audio.ctx.resume();
+  }, { capture: true, passive: true });
+  root.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const btn = t.target && t.target.closest ? t.target.closest('.tbtn') : null;
+      if (btn) {
+        const act = btn.dataset.act;
+        btn.classList.add('down');
+        // ［射撃］ボタンは押したまま指をずらすと視点操作にもなる
+        Touch.touches.set(t.identifier, { type: act === 'fire' ? 'look' : 'btn', btn, x: t.clientX, y: t.clientY });
+        touchButton(act);
+      } else if (t.clientX < window.innerWidth * 0.42) {
+        Touch.touches.set(t.identifier, { type: 'joy', x0: t.clientX, y0: t.clientY });
+        jb.style.left = `${t.clientX}px`; jb.style.top = `${t.clientY}px`;
+        jb.classList.add('on'); jk.style.transform = '';
+      } else {
+        Touch.touches.set(t.identifier, { type: 'look', x: t.clientX, y: t.clientY });
+      }
+    }
+  }, { passive: false });
+  root.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const s = Touch.touches.get(t.identifier);
+      if (!s) continue;
+      if (s.type === 'joy') {
+        let dx = t.clientX - s.x0, dy = t.clientY - s.y0;
+        const r = touchJoyRadius(), m = Math.hypot(dx, dy);
+        if (m > r) { dx *= r / m; dy *= r / m; }
+        jk.style.transform = `translate(${dx}px, ${dy}px)`;
+        const nx = dx / r, ny = dy / r;
+        if (Math.hypot(nx, ny) < 0.15) { Touch.move.x = 0; Touch.move.y = 0; } else { Touch.move.x = nx; Touch.move.y = ny; }
+      } else if (s.type === 'look') {
+        Touch.lookDX += t.clientX - s.x; Touch.lookDY += t.clientY - s.y;
+        s.x = t.clientX; s.y = t.clientY;
+      }
+    }
+  }, { passive: false });
+  const end = (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const s = Touch.touches.get(t.identifier);
+      if (!s) continue;
+      if (s.btn) s.btn.classList.remove('down');
+      if (s.type === 'joy') {
+        Touch.move.x = Touch.move.y = 0; Touch.dash = false;
+        jb.classList.remove('on'); jk.style.transform = ''; placeJoyIdle();
+      }
+      Touch.touches.delete(t.identifier);
+    }
+  };
+  root.addEventListener('touchend', end, { passive: false });
+  root.addEventListener('touchcancel', end, { passive: false });
+  window.addEventListener('resize', () => { if (!Touch.touches.size) placeJoyIdle(); });
+}
+function enterFullscreenIfTouch() {
+  if (Pad.lastDevice !== 'touch') return;
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req || document.fullscreenElement || document.webkitFullscreenElement) return;
+  try {
+    const p = req.call(el, { navigationUI: 'hide' });
+    const lock = () => { try { const q = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (q && q.catch) q.catch(() => {}); } catch (e) { /* 向き固定非対応 */ } };
+    if (p && p.then) p.then(lock).catch(() => {}); else lock();
+  } catch (e) { /* 全画面非対応（iPhone の Safari など） */ }
+}
+
 // =====================================================================
 // 5. レンダラー初期化とローディング（アセット読み込み・正規化・フォールバック）
 // =====================================================================
 const renderer = new THREE.WebGLRenderer({ canvas: $('gl'), antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const maxPixelRatio = () => Math.min(window.devicePixelRatio, LOW_POWER ? CONFIG.mobile.pixelRatio : 2);
+renderer.setPixelRatio(maxPixelRatio());
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -710,7 +895,7 @@ scene.add(new THREE.AmbientLight(0x404858, 0.25));
 scene.add(new THREE.HemisphereLight(0x303848, 0x0a0806, 0.25));
 
 window.addEventListener('resize', () => {
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(maxPixelRatio());
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -1830,7 +2015,7 @@ function buildRoomLights(room) {
   const color = room.def.light;
   const mainL = new THREE.PointLight(color, 11, 9, 2);
   mainL.position.set((main[0] + 0.5) * T, WALL_H - 0.5, (main[1] + 0.5) * T);
-  mainL.castShadow = true; mainL.shadow.mapSize.set(512, 512); mainL.shadow.bias = -0.004; mainL.shadow.normalBias = 0.03;
+  mainL.castShadow = !LOW_POWER || CONFIG.mobile.roomShadows; mainL.shadow.mapSize.set(512, 512); mainL.shadow.bias = -0.004; mainL.shadow.normalBias = 0.03;
   mainL.shadow.camera.near = 0.1; mainL.shadow.camera.far = 12;
   const fillL = new THREE.PointLight(color, 8, 9, 2);
   fillL.position.set((fill[0] + 0.5) * T, WALL_H - 0.6, (fill[1] + 0.5) * T);
@@ -2053,7 +2238,7 @@ function buildPlayerView() {
   // ---- 懐中電灯・マズルフラッシュ ----
   flashlight = new THREE.SpotLight(0xfff2dd, 40, 18, THREE.MathUtils.degToRad(25), 0.5, 2);
   flashlight.castShadow = true;
-  flashlight.shadow.mapSize.set(1024, 1024);
+  flashlight.shadow.mapSize.set(LOW_POWER ? 512 : 1024, LOW_POWER ? 512 : 1024);
   flashlight.shadow.camera.near = 0.3; flashlight.shadow.camera.far = 18;
   flashlight.shadow.bias = -0.0006; flashlight.shadow.normalBias = 0.02;
   scene.add(flashlight); scene.add(flashlight.target);
@@ -2087,7 +2272,7 @@ function updatePlayer(dt) {
     player.reloadTimer -= dt;
     if (player.reloadTimer <= 0) finishReload();
   }
-  player.aiming = Input.rmb || padHeld('aim');
+  player.aiming = Input.rmb || padHeld('aim') || Touch.aim;
   // 移動入力（カメラ基準）：キーボード、無ければゲームパッドのスティック/十字キー（アナログ量で速度が変わる）
   let ix = 0, iz = 0, analog = 1;
   if (Input.isDown('KeyW') || Input.isDown('ArrowUp')) iz += 1;
@@ -2097,13 +2282,16 @@ function updatePlayer(dt) {
   if (ix === 0 && iz === 0 && (Pad.move.x || Pad.move.y)) {
     ix = Pad.move.x; iz = -Pad.move.y; analog = clamp(Math.hypot(ix, iz), 0, 1);
   }
+  if (ix === 0 && iz === 0 && (Touch.move.x || Touch.move.y)) {
+    ix = Touch.move.x; iz = -Touch.move.y; analog = clamp(Math.hypot(ix, iz), 0, 1);
+  }
   const hasInput = ix !== 0 || iz !== 0;
   const fx = Math.sin(camState.yaw), fz = Math.cos(camState.yaw);
   const rx = -Math.cos(camState.yaw), rz = Math.sin(camState.yaw);
   let dx = fx * iz + rx * ix, dz = fz * iz + rz * ix;
   const dl = Math.hypot(dx, dz);
   if (dl > 0) { dx /= dl; dz /= dl; }
-  const running = hasInput && !player.aiming && (Input.isDown('ShiftLeft') || Input.isDown('ShiftRight') || padHeld('dash'));
+  const running = hasInput && !player.aiming && (Input.isDown('ShiftLeft') || Input.isDown('ShiftRight') || padHeld('dash') || Touch.dash);
   let maxSpeed = player.aiming ? CONFIG.player.aimWalk : running ? CONFIG.player.run : CONFIG.player.walk;
   if (!running) maxSpeed *= lerp(0.35, 1, analog);
   if (player.hurtTimer > 0) maxSpeed *= 0.5;
@@ -2294,7 +2482,7 @@ function updateCamera(dt) {
   camState.look.copy(camState.pivot).addScaledVector(camF, 10);
   camera.lookAt(camState.look);
   camState.forward.copy(camF);
-  const tf = aim ? CONFIG.camera.aimFov : CONFIG.camera.fov;
+  const tf = (aim ? CONFIG.camera.aimFov : CONFIG.camera.fov) * (camera.aspect < 1 ? 1.3 : 1);   // 縦画面では視野を広げる
   const nf = damp(camera.fov, tf, CONFIG.camera.followK, dt);
   if (Math.abs(nf - camera.fov) > 0.01) { camera.fov = nf; camera.updateProjectionMatrix(); }
   updateFlashlight();
@@ -3081,7 +3269,7 @@ function tryFire() {
   const w = state.weapon, cfg = CONFIG[w];
   if (state.ammo[w] <= 0) {
     Audio.dryFire(); player.fireCd = 0.25;
-    showMessage(countAmmo(w) > 0 ? `${btnLabel('reload')} でリロード` : '弾が尽きた……');
+    showMessage(countAmmo(w) > 0 ? (Pad.lastDevice === 'touch' ? '［リロード］で弾を込める' : `${btnLabel('reload')} でリロード`) : '弾が尽きた……');
     return;
   }
   state.ammo[w]--;
@@ -3248,7 +3436,7 @@ function pickupItem(it) {
     if (freeSlots() < 1 + (needAmmoSlot ? 1 : 0)) { showMessage('これ以上持てない。（マグナムと弾で2枠必要）'); return; }
     addToInventory('magnum'); addToInventory('mgAmmo', CONFIG.magnum.startReserve);
     state.ammo.magnum = CONFIG.magnum.mag;
-    showMessage(`マグナムを手に入れた。（${Pad.lastDevice === 'pad' ? btnLabel('weapon') + ' ボタン' : '2 キー'}で持ち替え）`);
+    showMessage(`マグナムを手に入れた。（${Pad.lastDevice === 'touch' ? '［武器］' : Pad.lastDevice === 'pad' ? btnLabel('weapon') + ' ボタン' : '2 キー'}で持ち替え）`);
   } else if (type === 'hgAmmo') {
     if (!addToInventory('hgAmmo', 15)) { showMessage('これ以上持てない。'); return; }
     showMessage('ハンドガンの弾 ×15 を手に入れた。');
@@ -3294,7 +3482,7 @@ function startTransition(target) {
   game.transition = { t: 0, target, switched: false, fadedIn: false };
   $('fade').style.opacity = '1';
   Audio.door();
-  Input.rmb = false;
+  Input.rmb = false; Touch.aim = false;
 }
 function updateTransition(dt) {
   const tr = game.transition;
@@ -3451,7 +3639,7 @@ function applyFlagsToWorld() {
 function openDoc(title, body) {
   ui.docOpen = true;
   $('docTitle').textContent = title; $('docBody').textContent = body;
-  $('docClose').textContent = `${btnLabel('interact')} で閉じる`;
+  $('docClose').textContent = Pad.lastDevice === 'touch' ? 'タップで閉じる' : `${btnLabel('interact')} で閉じる`;
   $('docPanel').classList.remove('hidden');
   Input.rmb = false;
 }
@@ -3512,7 +3700,9 @@ function openInventory() {
   ui.inventoryOpen = true; ui.invSel = clamp(ui.invSel, 0, INV_SIZE - 1);
   Input.rmb = false;
   renderInventory();
-  $('invHelp').textContent = Pad.lastDevice === 'pad'
+  $('invHelp').textContent = Pad.lastDevice === 'touch'
+    ? 'タップで選択、もう一度タップで使う・装備'
+    : Pad.lastDevice === 'pad'
     ? `十字キー/スティック：選択　${btnLabel('interact')}：使う・装備　${btnLabel('dash')}：捨てる　${btnLabel('inventory')}：閉じる`
     : 'WASD / 矢印：選択　E：使う・装備　Q：捨てる　Tab：閉じる';
   $('inventory').classList.remove('hidden');
@@ -3534,6 +3724,11 @@ function renderInventory() {
       if (ITEM_DEFS[it.type].stack) { const c = document.createElement('div'); c.className = 'cnt'; c.textContent = it.count; d.appendChild(c); }
       if (ITEM_DEFS[it.type].weapon) { const c = document.createElement('div'); c.className = 'cnt'; c.textContent = state.ammo[ITEM_DEFS[it.type].weapon]; d.appendChild(c); }
     }
+    d.addEventListener('click', () => {
+      if (!ui.inventoryOpen) return;
+      if (ui.invSel === i) handleInventoryKey('KeyE');
+      else { ui.invSel = i; renderInventory(); }
+    });
     grid.appendChild(d);
   }
   const it = state.inventory[ui.invSel];
@@ -3583,7 +3778,7 @@ function discardInventoryItem(i) {
 // ---- マップ ----
 function openMap() {
   ui.mapOpen = true; Input.rmb = false;
-  $('mapHelp').textContent = `赤：施錠された扉　緑：開いている扉　点滅：現在地　${Pad.lastDevice === 'pad' ? btnLabel('map') : 'M'}：閉じる`;
+  $('mapHelp').textContent = `赤：施錠された扉　緑：開いている扉　点滅：現在地${Pad.lastDevice === 'touch' ? '' : `　${Pad.lastDevice === 'pad' ? btnLabel('map') : 'M'}：閉じる`}`;
   $('mapPanel').classList.remove('hidden'); drawMap();
 }
 function closeMap() { ui.mapOpen = false; $('mapPanel').classList.add('hidden'); resumeIfUnlocked(); }
@@ -3908,6 +4103,7 @@ function loadStoredSave() {
   } catch (e) { return null; }
 }
 function beginPlay() {
+  enterFullscreenIfTouch();
   hideScreens();
   game.running = true; game.menuPause = false; game.gameOver = false; game.ending = false;
   clock.getDelta();
@@ -3978,7 +4174,7 @@ function resumeFromPause(lock) {
 }
 function pauseGame() {
   game.menuPause = true;
-  Input.rmb = false;
+  Input.rmb = false; Touch.aim = false;
   $('pause').classList.remove('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
 }
@@ -3994,6 +4190,15 @@ $('padReset').addEventListener('click', () => {
 });
 $('padInvert').addEventListener('change', (e) => { if (!Pad.cfg) return; Pad.cfg.invertY = e.target.checked; if (Pad.wizard) Pad.wizard.cfg.invertY = e.target.checked; padSave(); });
 $('padPanel').addEventListener('mousedown', (e) => e.stopPropagation());
+$('invUseBtn').addEventListener('click', () => { if (ui.inventoryOpen) handleInventoryKey('KeyE'); });
+$('invDropBtn').addEventListener('click', () => { if (ui.inventoryOpen) handleInventoryKey('KeyQ'); });
+$('invCloseBtn').addEventListener('click', () => { if (ui.inventoryOpen) closeInventory(); });
+$('mapCloseBtn').addEventListener('click', () => { if (ui.mapOpen) closeMap(); });
+$('docPanel').addEventListener('click', () => { if (ui.docOpen) closeDoc(); });
+// アプリの切り替え・画面ロック時は自動で一時停止
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && game.running && !game.gameOver && !game.ending && !game.menuPause && !game.transition) pauseGame();
+});
 $('padPanel').addEventListener('click', (e) => e.stopPropagation());
 
 // ---- ゲームパッドの操作をゲームへ反映（毎フレーム） ----
@@ -4043,6 +4248,77 @@ function handlePadInput(dt) {
   }
   if (padPressed('fire')) { player.aiming = Input.rmb || padHeld('aim'); tryFire(); }
 }
+// ---- タッチ操作をゲームへ反映 ----
+function handleTouchActions() {
+  const q = Touch.queue; Touch.queue = [];
+  if (!game.running || isPaused() || player.dead) {
+    Touch.lookDX = Touch.lookDY = 0;
+    if (!game.running || game.gameOver || game.ending) Touch.aim = false;
+    return;
+  }
+  for (const act of q) {
+    switch (act) {
+      case 'fire': player.aiming = Input.rmb || padHeld('aim') || Touch.aim; tryFire(); break;
+      case 'interact': doInteract(); break;
+      case 'reload': tryReload(); break;
+      case 'weapon':
+        if (state.weapon === 'handgun' && hasItem('magnum')) switchWeapon('magnum');
+        else if (state.weapon === 'magnum') switchWeapon('handgun');
+        else showMessage('持ち替える武器がない。');
+        break;
+      case 'inventory': resetTouchState(); openInventory(); return;
+      case 'map': resetTouchState(); openMap(); return;
+      case 'pause': resetTouchState(); pauseGame(); return;
+    }
+  }
+}
+function updateTouchLook() {
+  if (!Touch.lookDX && !Touch.lookDY) return;
+  const k = CONFIG.touch.lookSensitivity * (player.aiming ? 0.55 : 1);
+  camState.yaw -= Touch.lookDX * k;
+  camState.pitch = clamp(camState.pitch - Touch.lookDY * k, CONFIG.camera.pitchMin, CONFIG.camera.pitchMax);
+  Touch.lookDX = Touch.lookDY = 0;
+}
+// タッチ・パッド用の照準補助：構え中、照準の近くにいる敵の胴体へゆっくり吸い寄せる
+function updateAimAssist(dt) {
+  if (!CONFIG.touch.aimAssist || !player.aiming || player.dead || Pad.lastDevice === 'kb') return;
+  camera.getWorldDirection(tmpV1);
+  let best = null, bestAng = THREE.MathUtils.degToRad(Pad.lastDevice === 'touch' ? 9 : 5);
+  const room = currentRoom(), cp = camera.position;
+  const consider = (x, y, z) => {
+    tmpV2.set(x - cp.x, y - cp.y, z - cp.z);
+    const d = tmpV2.length();
+    if (d > 14 || d < 0.5) return;
+    const ang = tmpV1.angleTo(tmpV2);
+    if (ang < bestAng && hasLineOfSight(room, state.player.x, state.player.z, x, z)) { bestAng = ang; best = [x, y, z]; }
+  };
+  for (const e of state.enemies) if (e.room === state.room && enemyAlive(e)) consider(e.x, 1.35, e.z);
+  if (state.room === 'core' && bossActive() && state.boss.y > -1) consider(state.boss.x, 1.35 * CONFIG.boss.scale, state.boss.z);
+  if (!best) return;
+  const dx = best[0] - cp.x, dz = best[2] - cp.z;
+  const k = Pad.lastDevice === 'touch' ? 4 : 2.5;
+  camState.yaw = dampAngle(camState.yaw, Math.atan2(dx, dz), k, dt);
+  camState.pitch = clamp(damp(camState.pitch, Math.atan2(best[1] - cp.y, Math.hypot(dx, dz)), k, dt), CONFIG.camera.pitchMin, CONFIG.camera.pitchMax);
+}
+function updateTouchUI() {
+  const touchMode = Pad.lastDevice === 'touch';
+  document.body.classList.toggle('touch', touchMode);
+  const playing = game.running && !game.gameOver && !game.ending;
+  const show = touchMode && playing && !isPaused();
+  if (show !== Touch.visible) {
+    Touch.visible = show;
+    $('touchUI').classList.toggle('hidden', !show);
+    if (!show) resetTouchState();
+  }
+  $('rotateHint').classList.toggle('hidden', !(touchMode && playing && window.innerHeight > window.innerWidth));
+  if (!show) return;
+  $('tbFire').classList.toggle('off', !player.aiming);
+  $('tbAim').classList.toggle('on', Touch.aim);
+  $('tbDash').classList.toggle('on', Touch.dash);
+  $('tbAct').classList.toggle('ready', !!findInteractable());
+  $('tbWeapon').classList.toggle('hidden', !hasItem('magnum'));
+  $('tbWeapon').textContent = state.weapon === 'magnum' ? 'ハンド\nガン' : 'マグ\nナム';
+}
 function updatePadLook(dt) {
   if (Pad.index === null || (!Pad.look.x && !Pad.look.y)) return;
   const curve = (v) => Math.sign(v) * v * v;
@@ -4063,6 +4339,8 @@ let elapsed = 0;
 function update(dt) {
   state.stats.time += dt;
   updatePadLook(dt);
+  updateTouchLook();
+  updateAimAssist(dt);
   updateScheduled(dt);
   updatePlayer(dt);
   for (const e of state.enemies) if (e.room === state.room) updateEnemy(e, dt);
@@ -4094,7 +4372,7 @@ function loop() {
   if (hitStopTimer > 0) { hitStopTimer -= dt; dt = 0; }
   elapsed += realDt;
   pollPad(realDt);
-  if (state && player.view) handlePadInput(realDt);
+  if (state && player.view) { handlePadInput(realDt); handleTouchActions(); updateTouchUI(); }
   if (game.running && !isPaused()) update(dt);
   else if (!game.running && player.view && player.view.rig && state) posePlayerRig(player.view.rig, realDt);
   updateTransition(realDt);
@@ -4131,6 +4409,9 @@ async function init() {
   $('title').classList.remove('hidden');
   $('btnContinue').classList.toggle('hidden', !loadStoredSave());
   padStatusUpdate();
+  initTouchUI();
+  document.body.classList.toggle('touch', Pad.lastDevice === 'touch');
+  if (LOW_POWER) console.log('[MOBILE] タッチ端末向けの軽量設定で描画します（ピクセル比上限・部屋ライトの影オフ）');
   clock.getDelta();
   loop();
 }
@@ -4138,8 +4419,8 @@ async function init() {
 window.__game = {
   get state() { return state; }, get lastSave() { return lastSave; }, get bossView() { return bossView; }, enemyViews, itemViews, camState, game, player, rooms, ui, Input, CONFIG,
   resetGame, createInitialState, startNewGame, retryGame, enterRoom, saveGame, update, updateCamera, updateTransition, doInteract, findInteractable,
-  Pad, pollPad, handlePadInput, posePlayerRig,
-  tryFire, tryReload, damagePlayer, switchWeapon, openInventory, closeInventory, handleInventoryKey, toggleDebug, startBossFight,
+  Pad, Touch, pollPad, handlePadInput, posePlayerRig,
+  tryFire, tryReload, damagePlayer, switchWeapon, openInventory, closeInventory, openMap, handleInventoryKey, toggleDebug, startBossFight,
 };
 init().catch((err) => {
   console.error(err);
