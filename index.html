@@ -144,8 +144,8 @@
   <div class="blink">クリックして開始</div>
   <div style="font-size:13px;margin-top:8px;color:#9a8f80">（ゲームパッドは START か ② ボタンで開始）</div>
   <button id="btnContinue" class="ui hidden" style="margin-top:22px">つづきから（セーブデータ）</button>
-  <button id="btnPad" class="ui" style="font-size:14px;padding:6px 20px">ゲームパッド設定</button>
-  <div id="padStatus">ゲームパッド：未接続（パッドのボタンを押すと認識されます）</div>
+  <button id="btnPad" class="ui" style="font-size:14px;padding:6px 20px;position:absolute;right:20px;bottom:44px">ゲームパッド設定</button>
+  <div id="padStatus" style="position:absolute;right:20px;bottom:16px;max-width:60vw;text-align:right">ゲームパッド：未接続（パッドのボタンを押すと認識されます）</div>
   <div class="controls">
     WASD：移動　Shift：ダッシュ　右クリック（押下中）：構える　構え中に左クリック：射撃<br>
     R：リロード　E：調べる／拾う／扉を開ける　Tab：アイテム　M：マップ　1・2：武器切替<br>
@@ -1342,9 +1342,9 @@ function posePlayerRig(rig, dt) {
   // 構え（両手保持、ピッチ追従、反動）
   const p = camState.pitch, rc = player.recoil;
   if (aimW > 0.001) {
-    RA(a.shR, (-Math.PI / 2 - p - rc * 0.9) * aimW, 0.12 * aimW); RA(a.elR, -rc * 0.6 * aimW); RA(a.haR, -rc * 0.5 * aimW);
+    RA(a.shR, (-Math.PI / 2 - p - rc * 0.9) * aimW, -0.08 * aimW); RA(a.elR, -rc * 0.6 * aimW); RA(a.haR, -rc * 0.5 * aimW);
     RA(a.shL, (-Math.PI / 2 - p + 0.3) * aimW, -0.6 * aimW); RA(a.elL, -0.55 * aimW);
-    RA(a.chest, -p * 0.25 * aimW, 0.22 * aimW); RA(a.spine, -p * 0.15 * aimW, 0.08 * aimW); RA(a.head, -p * 0.45 * aimW, -0.28 * aimW);
+    RA(a.chest, -p * 0.25 * aimW, 0.14 * aimW); RA(a.spine, -p * 0.15 * aimW, 0.06 * aimW); RA(a.head, -p * 0.45 * aimW, -0.2 * aimW);
   }
   // リロード（銃を胸元へ、左手で腰のマガジンを取って差し込む）
   if (relW > 0.001) {
